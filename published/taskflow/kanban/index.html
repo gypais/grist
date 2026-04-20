@@ -544,7 +544,7 @@
                 if (el) {
                     sortableInstances.push(new Sortable(el, {
                         group: 'tasks', animation: 150, ghostClass: 'sortable-ghost', chosenClass: 'sortable-chosen',
-                        onEnd: (evt) => handleDrop(evt, col.key)
+                        onEnd: (evt) => handleDrop(evt)
                     }));
                 }
             });
@@ -585,15 +585,20 @@
             </div>`;
         }
 
-        async function handleDrop(evt, colKey) {
+        async function handleDrop(evt) {
             const taskId = parseInt(evt.item.dataset.id);
             const task = tasks.find(t => t.id === taskId);
             if (!task) return;
-            
+
+            // Lire la colonne de destination depuis evt.to (le conteneur d'arrivée).
+            // Utiliser col.key capturée en closure donnerait la source, pas la destination.
+            const colKey = (evt.to && evt.to.id) ? evt.to.id.replace(/^col-/, '') : null;
+            if (colKey === null) return;
+
             let updates = {};
             if (groupBy === 'statut') { updates.statut = colKey; if (colKey === 'done') updates.progression = 100; }
-            else if (groupBy === 'priorite') updates.priorite = colKey;
-            else if (groupBy === 'projet') updates.projet = colKey === 'none' ? null : parseInt(colKey);
+            else if (groupBy === 'priorite') updates.priorite = parseInt(colKey, 10);
+            else if (groupBy === 'projet') updates.projet = colKey === 'none' ? null : parseInt(colKey, 10);
             
             Object.assign(task, updates);
             

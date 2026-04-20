@@ -500,7 +500,7 @@
         let currentView = localStorage.getItem('taskflow_gantt_view') || 'month';
         let viewStartDate = new Date();
         let selectedTaskId = null;
-        let sortMode = 'priority';
+        let sortMode = localStorage.getItem('taskflow_gantt_sort') || 'priority';
         let sortableInstance = null;
         let filters = { project: [], assignee: [], priority: [] };  // GEN-02: Arrays pour compatibilité inter-widgets
         let dragState = { active: false, type: null, taskId: null, startX: 0, originalLeft: 0, originalWidth: 0, originalStart: null, originalEnd: null };
@@ -756,7 +756,7 @@
         // ═══════════════════════════════════════════════════════════════════════
         // SORTING & FILTERING
         // ═══════════════════════════════════════════════════════════════════════
-        function changeSortMode(mode) { sortMode = mode; sortTasks(); render(); }
+        function changeSortMode(mode) { sortMode = mode; localStorage.setItem('taskflow_gantt_sort', mode); sortTasks(); render(); }
         function sortTasks() {
             if (sortMode === 'priority') tasks.sort((a, b) => { const pa = getTaskPriority(a), pb = getTaskPriority(b); return pa !== pb ? pa - pb : (a.dateDebut || 0) - (b.dateDebut || 0); });
             else if (sortMode === 'date') tasks.sort((a, b) => (a.dateDebut || 0) - (b.dateDebut || 0));
