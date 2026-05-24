@@ -1033,6 +1033,7 @@ function closeModulePanel() {
 
 // ---- Lieu ----
 let searchTimer = null;
+let locationPickMode = false;
 function renderLieu() {
     $('module-title').textContent = '📍 Lieu';
     const L = STATE.location;
@@ -1052,6 +1053,7 @@ function renderLieu() {
         </div>
         <div class="section">
             <button class="btn btn-soft btn-full" onclick="A.useGeolocation()">📍 Ma position actuelle</button>
+            <button class="btn btn-soft btn-full" style="margin-top:8px" onclick="A.pickOnMap()">🗺️ Pointer sur la carte</button>
         </div>
         <div class="section">
             <div class="section-title">Coordonnées manuelles</div>
@@ -1493,7 +1495,7 @@ function setupInteraction() {
     let boxStart = null, boxEl = null, boxing = false;
 
     map.on('mousemove', (e) => {
-        if (boxing) return;
+        if (boxing || locationPickMode) return;
         const ids = hitLayerIds();
         const feats = ids.length ? map.queryRenderedFeatures(e.point, { layers: ids }) : [];
         map.getCanvas().style.cursor = feats.length ? (STATE.selection.mode ? 'crosshair' : 'pointer') : (STATE.selection.mode ? 'crosshair' : '');
@@ -1501,6 +1503,7 @@ function setupInteraction() {
 
     map.on('click', (e) => {
         if (boxing) return;
+        if (locationPickMode) { onLocationPick(e); return; }
         const ids = hitLayerIds();
         const feats = ids.length ? map.queryRenderedFeatures(e.point, { layers: ids }) : [];
         if (!feats.length) return;
@@ -1561,6 +1564,20 @@ function selectInBox(a, b) {
     afterSelectionChange();
 }
 
+async function onLocationPick(e) {
+    locationPickMode = false;
+    map.getCanvas().style.cursor = '';
+    const { lng, lat } = e.lngLat;
+    STATE.location = { ...STATE.location, lat, lng, name: `${lat.toFixed(4)}°N, ${lng.toFixed(4)}°E` };
+    if (STATE.currentModule === 'lieu') renderLieu();
+    markDirty();
+    showToast('Lieu défini', 'success');
+    try {
+        const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&zoom=16&lat=${lat}&lon=${lng}&accept-language=fr`, { headers: { Accept: 'application/json' } });
+        const d = await r.json();
+        if (d?.display_name) { STATE.location.name = d.display_name.split(',').slice(0, 2).join(',').trim(); if (STATE.currentModule === 'lieu') renderLieu(); }
+    } catch (e2) {}
+}
 function enterSelectionMode(layerId, idx) {
     STATE.selection.mode = true;
     STATE.selection.layerId = layerId;
@@ -1924,6 +1941,11 @@ const A = {
         map.flyTo({ center: [+lng, +lat], zoom: 16, duration: 1200 });
         markDirty(); renderLieu();
     },
+    pickOnMap() {
+        locationPickMode = true;
+        if (map) map.getCanvas().style.cursor = 'crosshair';
+        showToast('Cliquez sur la carte pour définir le lieu (Échap pour annuler)', 'info');
+    },
     useGeolocation() {
         if (!navigator.geolocation) { showToast('Géolocalisation non supportée', 'error'); return; }
         showLoading('Localisation…');
@@ -2258,7 +2280,8 @@ function wireEvents() {
             return;
         }
         if (e.key === 'Escape') {
-            if (STATE.selection.mode) exitSelectionMode();
+            if (locationPickMode) { locationPickMode = false; if (map) map.getCanvas().style.cursor = ''; showToast('Annulé', 'info'); }
+            else if (STATE.selection.mode) exitSelectionMode();
             else if (STATE.currentModule) closeModulePanel();
         }
     });
