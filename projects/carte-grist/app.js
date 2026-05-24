@@ -163,21 +163,39 @@ const MODEL_LIBRARY = {
         ]},
     },
 };
-// Résolution de l'URL des modèles : ?models=… > localStorage > local (servir la
-// racine du repo) > GitHub Pages (prod). Permet de tester les GLB en local.
-(function resolveModelBase() {
+// URL des modèles : override explicite (?models= / localStorage) sinon défaut
+// GitHub Pages. probeLocalModels() (appelé à l'init) teste des chemins locaux et
+// bascule dessus s'ils répondent — utile en dev avant déploiement gh-pages.
+let MODEL_BASE_EXPLICIT = false;
+(function () {
     try {
         const qp = new URLSearchParams(location.search).get('models');
-        if (qp) { MODEL_LIBRARY.baseRoot = qp.replace(/\/+$/, '') + '/'; return; }
+        if (qp) { MODEL_LIBRARY.baseRoot = qp.replace(/\/+$/, '') + '/'; MODEL_BASE_EXPLICIT = true; return; }
         const ls = localStorage.getItem('atlas_model_base');
-        if (ls) { MODEL_LIBRARY.baseRoot = ls.replace(/\/+$/, '') + '/'; return; }
-        const h = location.hostname;
-        if (location.protocol === 'file:' || h === 'localhost' || h === '127.0.0.1' || h === '') {
-            // dev : modèles relatifs au repo (servir la RACINE du repo, ouvrir /projects/carte-grist/index.html)
-            MODEL_LIBRARY.baseRoot = new URL('../../published/models/', location.href).href;
-        }
-    } catch (e) { /* garde le défaut Pages */ }
+        if (ls) { MODEL_LIBRARY.baseRoot = ls.replace(/\/+$/, '') + '/'; MODEL_BASE_EXPLICIT = true; }
+    } catch (e) {}
 })();
+async function probeLocalModels() {
+    if (MODEL_BASE_EXPLICIT) return;
+    const cands = [];
+    try {
+        cands.push(new URL('../../published/models/', location.href).href); // racine du repo servie
+        cands.push(new URL('./models/', location.href).href);               // modèles à côté du widget
+        cands.push(new URL('../models/', location.href).href);
+    } catch (e) { return; }
+    for (const base of cands) {
+        try {
+            const r = await fetch(base + 'catalog.json', { cache: 'no-store' });
+            if (r.ok && base !== MODEL_LIBRARY.baseRoot) {
+                MODEL_LIBRARY.baseRoot = base;
+                Models3D.gltfCache.clear(); Models3D.protoCache.clear(); Models3D.scheduleBuild();
+                console.log('🧩 Modèles 3D servis localement :', base);
+                return;
+            }
+        } catch (e) {}
+    }
+    // sinon : GitHub Pages (fonctionne une fois publié, CORS *)
+}
 function allModels() {
     const out = [];
     for (const [catId, cat] of Object.entries(MODEL_LIBRARY.categories))
@@ -2171,6 +2189,7 @@ function wireEvents() {
 async function init() {
     wireEvents();
     initMap();
+    probeLocalModels();
     // autosave restore prompt
     try {
         const auto = localStorage.getItem('atlas_autosave');
