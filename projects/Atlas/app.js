@@ -532,6 +532,11 @@ const Models3D = {
                 self._m4VP.fromArray(arr).multiply(self._m4Origin);
                 self.camera.projectionMatrix.copy(self._m4VP);
                 self.renderer.resetState();
+                // Resynchronise le viewport sur le canvas courant : sinon, quand
+                // MapLibre redimensionne le canvas (iframe Grist), three.js garde
+                // l'ancien viewport et les objets « glissent » par rapport à la carte.
+                const cv = map.getCanvas();
+                self.renderer.setViewport(0, 0, cv.width, cv.height);
                 self.renderer.render(self.scene, self.camera);
             },
             onRemove() { self.disposeInstances(); self.renderer?.dispose?.(); self.renderer = null; self.scene = null; },
