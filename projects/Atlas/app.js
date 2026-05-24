@@ -425,8 +425,8 @@ async function flatDemTile() {
 //  d'édition, culling viewport, placement sur le relief)
 // ============================================================
 const MAX_3D_INSTANCES = 20000;       // plafond élevé grâce à l'instancing
-const MODEL3D_ZOOM_GATE = 13;          // sous ce zoom on cache la 3D si beaucoup d'objets
-const MODEL3D_GATE_COUNT = 400;
+const MODEL3D_ZOOM_GATE = 11;          // sous ce zoom on cache la 3D si beaucoup d'objets
+const MODEL3D_GATE_COUNT = 4000;
 
 const Models3D = {
     layerId: 'three-models-3d',
@@ -921,10 +921,13 @@ function applyPointStyle(layer) {
     const sym = initSymbolization(layer);
 
     if (s.mode === 'library' || s.mode === 'custom') {
-        // 3D models rendered by three.js; add a faint hit circle for interaction/selection
+        // 3D rendu par three.js ; petit cercle de hit discret pour clic/sélection,
+        // qui s'estompe quand on zoome (là où la 3D prend le relais).
         map.addLayer({ id: layer.id, type: 'circle', source: layer.id, paint: {
-            'circle-radius': 7, 'circle-color': layer.color, 'circle-opacity': 0.18,
-            'circle-stroke-width': 1, 'circle-stroke-color': layer.color, 'circle-stroke-opacity': 0.5,
+            'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 2, 15, 3, 19, 4.5],
+            'circle-color': layer.color,
+            'circle-opacity': ['interpolate', ['linear'], ['zoom'], 11, 0.12, 16, 0.06, 18, 0.02],
+            'circle-stroke-width': 0,
         }});
         Models3D.scheduleBuild();
     } else {
@@ -1277,10 +1280,25 @@ function renderSymbologyInspector(layer) {
     tabs.push('Étiquette');
     if (!tabs.includes(inspSymTab)) inspSymTab = 'Couleur';
 
+    // Chip du modèle 3D lié à la couche (toujours visible dans l'inspecteur)
+    const is3D = isPoint && (layer.style?.mode === 'library' || layer.style?.mode === 'custom');
+    let modelChip = '';
+    if (is3D) {
+        const mm = sym.model || {};
+        let label, icon = '📦';
+        if (mm.mode === 'categorized' && mm.field) { label = `par champ « ${mm.field} »`; }
+        else if (layer.style?.mode === 'custom' && layer.style.custom?.filename) { label = layer.style.custom.filename; }
+        else { const m = findModel(layer.style?.library?.modelId); icon = m?.icon || '📦'; label = m ? m.name : 'aucun modèle'; }
+        modelChip = `<div style="margin-top:8px;display:flex;align-items:center;gap:8px">
+            <span style="display:inline-flex;align-items:center;gap:6px;background:var(--accent-soft);border:1px solid rgba(196,69,54,0.2);border-radius:8px;padding:4px 10px;font-size:12px;color:var(--ink)"><span style="font-size:15px">${icon}</span>${label}</span>
+            <button onclick="A.openModule('modeles')" style="background:transparent;border:none;color:var(--accent);font-size:12px;font-weight:600;cursor:pointer">changer</button>
+        </div>`;
+    }
     $('insp-head').innerHTML = `
-        <div class="insp-eyebrow"><span class="layer-swatch" style="background:${layer.color}"></span>Symboliser</div>
+        <div class="insp-eyebrow"><span class="layer-swatch" style="background:${layer.color}"></span>Symboliser${is3D ? ' · <span style="color:var(--accent2)">3D</span>' : ''}</div>
         <div class="insp-title">${layer.name}</div>
-        <div class="insp-sub">${layer.geojson?.features?.length || 0} objets · ${layer.geometryType}</div>`;
+        <div class="insp-sub">${layer.geojson?.features?.length || 0} objets · ${layer.geometryType}</div>
+        ${modelChip}`;
     $('insp-tabs').innerHTML = tabs.map((t) => `<button class="insp-tab ${inspSymTab === t ? 'active' : ''}" onclick="A.setSymTab('${t}')">${t}</button>`).join('');
 
     const body = $('insp-body');
