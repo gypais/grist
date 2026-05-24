@@ -1006,7 +1006,7 @@ function setLayerVisibility(layer, visible) {
 // ============================================================
 // MODULES — chrome contextuel
 // ============================================================
-const MODULE_TITLES = { lieu: '📍 Lieu', couches: 'Couches', symbo: 'Symboliser', modeles: 'Modèles 3D', soleil: '☀️ Soleil', vues: 'Vue & rendu' };
+const MODULE_TITLES = { lieu: '📍 Lieu', couches: 'Couches', symbo: 'Symboliser', soleil: '☀️ Soleil', vues: 'Vue & rendu', reglages: '⚙️ Catalogue 3D' };
 
 function openModule(name) {
     STATE.currentModule = name;
@@ -1017,7 +1017,7 @@ function openModule(name) {
 
     if (name === 'lieu') renderLieu();
     else if (name === 'couches' || name === 'symbo') renderLayersPanel(name);
-    else if (name === 'modeles') renderModelsPanel();
+    else if (name === 'reglages') renderModelsPanel();
     else if (name === 'soleil') renderSoleil();
     else if (name === 'vues') renderVues();
 
@@ -1283,7 +1283,7 @@ function renderSymbologyInspector(layer) {
         else { const m = findModel(layer.style?.library?.modelId); icon = m?.icon || '📦'; label = m ? m.name : 'aucun modèle'; }
         modelChip = `<div style="margin-top:8px;display:flex;align-items:center;gap:8px">
             <span style="display:inline-flex;align-items:center;gap:6px;background:var(--accent-soft);border:1px solid rgba(196,69,54,0.2);border-radius:8px;padding:4px 10px;font-size:12px;color:var(--ink)"><span style="font-size:15px">${icon}</span>${label}</span>
-            <button onclick="A.openModule('modeles')" style="background:transparent;border:none;color:var(--accent);font-size:12px;font-weight:600;cursor:pointer">changer</button>
+            <button onclick="A.openLayerModel('${layer.id}')" style="background:transparent;border:none;color:var(--accent);font-size:12px;font-weight:600;cursor:pointer">changer</button>
         </div>`;
     }
     $('insp-head').innerHTML = `
@@ -1868,7 +1868,7 @@ function buildCmdItems(q) {
         { label: 'Lieu', kind: 'module', run: () => openModule('lieu'), ic: '📍' },
         { label: 'Couches', kind: 'module', run: () => openModule('couches'), ic: '🗂️' },
         { label: 'Symboliser', kind: 'module', run: () => openModule('symbo'), ic: '🎨' },
-        { label: 'Modèles 3D', kind: 'module', run: () => openModule('modeles'), ic: '📦' },
+        { label: 'Catalogue 3D / Réglages', kind: 'module', run: () => openModule('reglages'), ic: '⚙️' },
         { label: 'Soleil', kind: 'module', run: () => openModule('soleil'), ic: '☀️' },
         { label: 'Vue & rendu', kind: 'module', run: () => openModule('vues'), ic: '🎯' },
         { label: 'Importer depuis OSM', kind: 'action', run: () => { openModule('couches'); openOSM(); }, ic: '🌍' },
@@ -1946,7 +1946,7 @@ const A = {
         STATE.selectedLayer = id;
         const layer = STATE.layers.find((l) => l.id === id);
         if (layer) layer._modelCat = layer._modelCat || 'furniture';
-        if (STATE.currentModule !== 'symbo' && STATE.currentModule !== 'modeles') openModule('symbo');
+        if (STATE.currentModule !== 'symbo') openModule('symbo');
         else { renderLayersPanel(STATE.currentModule); renderInspector(); }
     },
     toggleLayer(id, e) { e.stopPropagation(); const l = STATE.layers.find((x) => x.id === id); if (!l) return; setLayerVisibility(l, l.visible === false); renderLayersPanel(STATE.currentModule); updateLegend(); },
@@ -2202,7 +2202,6 @@ function wireEvents() {
             if (STATE.currentModule === m) closeModulePanel(); else openModule(m);
         });
     });
-    $('rail-settings').addEventListener('click', () => openModule('vues'));
     $('btn-save').addEventListener('click', saveProject);
     $('btn-load').addEventListener('click', loadProject);
     $('btn-export').addEventListener('click', exportProject);
