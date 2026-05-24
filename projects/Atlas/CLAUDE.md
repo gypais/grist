@@ -34,7 +34,12 @@ Atlas/
 1. **Direction = Atlas** (parmi Atlas / Workbench / Compass du design canvas).
 2. **Fonds de carte** : OpenFreeMap (Liberty 3D / Bright / Positron, sans clé ;
    bâtiments 3D via `fill-extrusion`) **+ IGN Géoplateforme** (Plan IGN, Ortho IGN
-   — raster, cible territoriale FR).
+   — raster, cible territoriale FR). Les fonds IGN sont raster purs : `ignRasterStyle`
+   leur réinjecte la source vecteur OpenFreeMap (`openmaptiles`) + la couche
+   `building-3d` pour garder le bâti 3D et le même calage en Z que Liberty.
+   `setBasemap` coupe le terrain (`setTerrain(null)`) avant le `setStyle` puis le
+   ré-applique dans `onStyleReady` (sinon la passe de profondeur du terrain plante
+   sur la source DEM retirée — « shaderPreludeCode »).
 3. **Modèles 3D = custom layer three.js en InstancedMesh** (moteur inspiré
    d'EclExt) : MapLibre n'a pas de couche `model` native. Voir `Models3D`.
 4. **MapLibre GL JS v5** (`maplibre-gl@5`) pour la **projection globe** (façon

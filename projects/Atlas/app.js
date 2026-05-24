@@ -24,9 +24,24 @@ const IGN = {
     mnt:   'ignmnt://data.geopf.fr/wms-r?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=IGNF_LIDAR-HD_MNT_ELEVATION.ELEVATIONGRIDCOVERAGE.LAMB93&STYLES=&FORMAT=image/geotiff&CRS=EPSG:3857&BBOX={bbox-epsg-3857}&WIDTH=512&HEIGHT=512',
 };
 function ignRasterStyle(tiles) {
-    return { version: 8, glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
-        sources: { 'ign': { type: 'raster', tiles: [tiles], tileSize: 256, attribution: '© IGN / Géoplateforme' } },
-        layers: [{ id: 'ign-base', type: 'raster', source: 'ign' }] };
+    // Le fond IGN est une imagerie raster pure (Plan/Ortho) : on lui ajoute la
+    // source vecteur OpenFreeMap + la couche de bâtiments 3D (fill-extrusion),
+    // pour conserver le bâti et le même calage en Z que le style Liberty.
+    return { version: 8, glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
+        sources: {
+            'ign': { type: 'raster', tiles: [tiles], tileSize: 256, attribution: '© IGN / Géoplateforme' },
+            'openmaptiles': { type: 'vector', url: 'https://tiles.openfreemap.org/planet' },
+        },
+        layers: [
+            { id: 'ign-base', type: 'raster', source: 'ign' },
+            { id: 'building-3d', type: 'fill-extrusion', source: 'openmaptiles', 'source-layer': 'building', minzoom: 14,
+              paint: {
+                  'fill-extrusion-base': ['get', 'render_min_height'],
+                  'fill-extrusion-color': 'hsl(35,8%,85%)',
+                  'fill-extrusion-height': ['get', 'render_height'],
+                  'fill-extrusion-opacity': 0.8,
+              } },
+        ] };
 }
 const BASEMAPS = {
     liberty:  { url: 'https://tiles.openfreemap.org/styles/liberty',  label: 'Liberty 3D', icon: '✨' },
@@ -2128,6 +2143,10 @@ const A = {
     setBasemap(k) {
         STATE.settings.basemap = k; renderVues();
         const b = BASEMAPS[k];
+        // Couper le relief AVANT de changer de style : pendant la transition la
+        // source DEM est retirée mais le terrain y pointe encore → la passe de
+        // profondeur du terrain plante (shaderPreludeCode). onStyleReady le ré-applique.
+        try { map.setTerrain(null); } catch (e) {}
         map.setStyle(b.style ? b.style() : b.url);
         map.once('idle', onStyleReady);
     },
