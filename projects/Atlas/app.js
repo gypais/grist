@@ -1818,6 +1818,7 @@ function setFeatureOverride(layer, idx, param, value) {
     const f = layer.geojson.features[idx]; if (!f) return;
     if (!f.properties) f.properties = {};
     f.properties['_' + param] = value;
+    layer._dirty = true; // éditions non enregistrées → protège de l'auto-refresh
 }
 function clearFeatureOverrides(layer, idx) {
     const p = layer.geojson.features[idx]?.properties; if (!p) return;
@@ -1845,8 +1846,9 @@ async function writeBackFeatures(layer, indices) {
     feats.forEach((f) => { for (const k in touched) f.properties[touched[k]] = f.properties[k]; });
 }
 // Recharge une couche liée depuis sa table source (sans UI) — pour 🔄 et l'auto-refresh.
-async function reloadLinkedLayer(l) {
+async function reloadLinkedLayer(l, force) {
     if (!CONFIG.grist.ready || l.kind !== 'table' || !l.sourceTable || !map) return 0;
+    if (l._dirty && !force) return -1; // ne pas écraser des éditions non enregistrées
     const cols = await grist.docApi.fetchTable(l.sourceTable);
     const gc = l.geometryColumn || detectGeometryColumn(cols);
     l.geojson = tableToGeoJSON(cols, gc);
@@ -1864,6 +1866,7 @@ async function reloadLinkedLayer(l) {
 let _autoRefreshT = null, _lastAutoRefresh = 0;
 function autoRefreshLinked() {
     if (!CONFIG.grist.ready || !STATE.layers.some((l) => l.kind === 'table')) return;
+    if (STATE.selection.mode) return; // pas de refresh pendant une édition d'objets
     clearTimeout(_autoRefreshT);
     _autoRefreshT = setTimeout(async () => {
         if (Date.now() - _lastAutoRefresh < 1500) return;
@@ -2450,7 +2453,7 @@ const A = {
         const l = STATE.layers.find((x) => x.id === id); if (!l || l.kind !== 'table') return;
         showLoading('Rafraîchissement…');
         try {
-            const n = await reloadLinkedLayer(l);
+            l._dirty = false; const n = await reloadLinkedLayer(l, true);
             hideLoading(); showToast(`Rafraîchie · ${n} objets`, 'success');
             if (STATE.currentModule === 'couches') renderLayersPanel(STATE.currentModule);
         } catch (e2) { hideLoading(); showToast('Erreur : ' + e2.message, 'error'); }
@@ -2769,6 +2772,7 @@ const A = {
     resetSelected() {
         const l = STATE.layers.find((x) => x.id === STATE.selection.layerId); if (!l) return;
         STATE.selection.features.forEach((i) => clearFeatureOverrides(l, i));
+        l._dirty = false;
         multiBaseValues = null; Models3D.updateEdited(l.id, STATE.selection.features); renderInspector(); showToast('Réinitialisé', 'success');
     },
     async applySelected() {
@@ -2777,6 +2781,7 @@ const A = {
         if (l && l.kind === 'table' && CONFIG.grist.ready) {
             try { await writeBackFeatures(l, STATE.selection.features); } catch (e) { showToast('Écriture Grist : ' + e.message, 'error'); return; }
         } else if (l) { saveLayerToGrist(l, true); }
+        if (l) l._dirty = false; // édition enregistrée
         showToast(`${STATE.selection.features.length} objet(s) enregistré(s)`, 'success');
     },
 
