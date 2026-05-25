@@ -193,11 +193,12 @@ let MODEL_BASE_EXPLICIT = false;
 })();
 async function probeLocalModels() {
     if (MODEL_BASE_EXPLICIT) return;
+    // Sonde réservée au dev (serveur local) ; en prod l'URL relative est correcte.
+    if (!/^(localhost|127\.|0\.0\.0\.0|\[::1\])/.test(location.hostname || location.host)) return;
     const cands = [];
     try {
-        cands.push(new URL('./models/', location.href).href);                     // modèles à côté du widget (prod /atlas/)
+        cands.push(new URL('./models/', location.href).href);                     // modèles à côté du widget
         cands.push(new URL('../../published/atlas/models/', location.href).href);  // racine du repo servie en dev
-        cands.push(new URL('../models/', location.href).href);
     } catch (e) { return; }
     for (const base of cands) {
         try {
@@ -2268,13 +2269,13 @@ const A = {
                 ...Object.keys(ovUsed).map((cn) => ({ id: cn, fields: { label: cn, type: 'Numeric' } })),
             ];
             if (is3D) colDefs.push({ id: 'model_id', fields: { label: 'model_id', type: 'Text' } });
-            // Colonne pièce jointe pour un GLB par enregistrement (couches de points) :
-            // prête à recevoir un modèle 3D propre à chaque objet (Atlas la rend, cf. model_glb).
             const isPt = layer.geometryType === 'Point' || layer.geometryType === 'MultiPoint';
-            if (isPt) colDefs.push({ id: 'model_glb', fields: { label: 'Modèle 3D (PJ)', type: 'Attachments' } });
             const tableName = sanitizeId('Atlas_' + layer.name);
             const addRes = await grist.docApi.applyUserActions([['AddTable', tableName, colDefs]]);
             const actualTable = addRes?.retValues?.[0]?.table_id || tableName;
+            // Colonne pièce jointe (type Attachments) — créée séparément : AddTable ne fixe
+            // pas fiablement les types spéciaux (sortait en Texte). 1 GLB par enregistrement.
+            if (isPt) { try { await grist.docApi.applyUserActions([['AddColumn', actualTable, 'model_glb', { type: 'Attachments', label: 'Modèle 3D (PJ)' }]]); } catch (e) {} }
             const BATCH = 200;
             for (let i = 0; i < feats.length; i += BATCH) {
                 const batch = feats.slice(i, i + BATCH);
@@ -2558,7 +2559,12 @@ const A = {
                 if (isPt && layer.style.mode !== 'library' && layer.style.mode !== 'custom') { layer.style.mode = 'library'; applyPointStyle(layer); }
                 Models3D.forceBuild(); markDirty();
                 hideLoading(); showToast(`Modèle importé · ${feats.length} objet(s)`, 'success');
-            } catch (e) { hideLoading(); showToast('Import : ' + e.message, 'error'); }
+            } catch (e) {
+                hideLoading();
+                // Upload souvent bloqué par la politique CORS de l'instance Grist.
+                const cors = /fetch|CORS|Failed|NetworkError|load failed/i.test(e.message || '');
+                showToast(cors ? 'Upload bloqué par Grist (CORS). Attache le .glb dans la colonne « Modèle 3D (PJ) » de la table, puis 🔄.' : 'Import : ' + e.message, 'error');
+            }
         };
         inp.click();
     },
