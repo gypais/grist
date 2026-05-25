@@ -608,7 +608,7 @@ const Models3D = {
             const categorized = sym.model?.mode === 'categorized' && sym.model.field;
             const feats = layer.geojson?.features || [];
             // modèle par objet via colonne/override (convention) : on collecte aussi
-            const perFeatureModel = feats.some((f) => f.properties && (f.properties._modelId || f.properties.model_id));
+            const perFeatureModel = feats.some((f) => f.properties && (f.properties._modelId || f.properties.model_id || f.properties.model_glb));
             if (!defUrl && !categorized && !perFeatureModel) continue;
             for (let idx = 0; idx < feats.length; idx++) {
                 const f = feats[idx];
@@ -616,7 +616,9 @@ const Models3D = {
                 const [lng, lat] = f.geometry.coordinates;
                 if (lng < b.getWest() - buf || lng > b.getEast() + buf || lat < b.getSouth() - buf || lat > b.getNorth() + buf) continue;
                 let url = defUrl;
-                if (categorized || f.properties?._modelId || f.properties?.model_id) { const mm = findModel(resolveFeatureProps(f, layer).modelId); if (mm) url = mm.url; }
+                const attId = featureAttachmentId(f);
+                if (attId != null) { url = attachmentUrlSync(attId); } // modèle en pièce jointe (prioritaire)
+                else if (categorized || f.properties?._modelId || f.properties?.model_id) { const mm = findModel(resolveFeatureProps(f, layer).modelId); if (mm) url = mm.url; }
                 if (!url) continue;
                 out.push({ layerId: layer.id, idx, lng, lat, url });
                 if (out.length >= MAX_3D_INSTANCES) return out;
@@ -1931,6 +1933,32 @@ function inferGristType(vals) {
     if (allInt) return 'Int';
     if (allNum) return 'Numeric';
     return 'Text';
+}
+
+// Jeton d'accès Grist (lecture des pièces jointes via l'API REST) + résolveur d'URL.
+let _gristTok = null;
+async function ensureGristToken() {
+    if (_gristTok && Date.now() < _gristTok.exp) return _gristTok;
+    try {
+        const t = await grist.docApi.getAccessToken({ readOnly: true });
+        _gristTok = { token: t.token, baseUrl: t.baseUrl, exp: Date.now() + Math.max(10000, (t.ttlMsecs || 60000) - 10000) };
+        return _gristTok;
+    } catch (e) { return null; }
+}
+function attachmentUrlSync(attId) {
+    if (!_gristTok || Date.now() >= _gristTok.exp) {
+        ensureGristToken().then((t) => { if (t) Models3D.scheduleBuild(); });
+        return null;
+    }
+    return `${_gristTok.baseUrl}/attachments/${attId}/download?auth=${_gristTok.token}`;
+}
+// id de pièce jointe d'une feature (colonne model_glb, type Attachments Grist).
+function featureAttachmentId(f) {
+    const v = f.properties && f.properties.model_glb;
+    if (v == null || v === '') return null;
+    if (Array.isArray(v)) { const ids = v[0] === 'L' ? v.slice(1) : v; return ids.length ? ids[0] : null; }
+    if (typeof v === 'number') return v;
+    return null;
 }
 
 const TABLE_SCHEMAS = {
