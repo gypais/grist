@@ -950,7 +950,7 @@ function onStyleReady() {
 function applyBuildingVisibility() {
     const vis = STATE.settings.buildings3D ? 'visible' : 'none';
     (map.getStyle().layers || []).forEach((l) => {
-        if (l.type === 'fill-extrusion') {
+        if (l.type === 'fill-extrusion' && !l.id.startsWith('layer-')) { // pas les couches de données
             try { map.setLayoutProperty(l.id, 'visibility', vis); } catch (e) {}
         }
     });
@@ -1170,7 +1170,7 @@ function applyPolygonStyle(layer) {
             'fill-extrusion-color': colorExpression(layer),
             'fill-extrusion-height': height,
             'fill-extrusion-base': 0,
-            'fill-extrusion-opacity': 0.85,
+            'fill-extrusion-opacity': 1,
         }});
     } else {
         map.addLayer({ id: layer.id, type: 'fill', source: layer.id, paint: {
@@ -3071,7 +3071,9 @@ async function init() {
             const p = JSON.parse(auto);
             if (p.layers?.length) {
                 // restore silently after map is ready
-                map.once('idle', () => { if (STATE.layers.length === 0 && confirm(`Restaurer la sauvegarde locale (${p.layers.length} couches) ?`)) restoreProject(p); });
+                // Seulement en standalone : sous Grist, c'est Grist la source de vérité
+                // (sinon double chargement autosave + Grist → couches en double).
+                map.once('idle', () => { if (!CONFIG.grist.ready && STATE.layers.length === 0 && confirm(`Restaurer la sauvegarde locale (${p.layers.length} couches) ?`)) restoreProject(p); });
             }
         }
     } catch (e) {}
