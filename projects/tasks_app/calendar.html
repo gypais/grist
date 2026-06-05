@@ -1016,6 +1016,26 @@
                 return out;
             }
 
+            // chargeMatrix : generalise chargeByMemberPeriod. Etale les charges (via getCharges,
+            // defaut parseCharges) sur la duree, agrege par cle keyFn(t, charge) et periode.
+            function chargeMatrix(tasks, keyFn, granularity, getCharges) {
+                const g = granularity === 'month' ? 'month' : 'week';
+                const out = {};
+                for (const t of (tasks || [])) {
+                    const charges = getCharges ? getCharges(t) : parseCharges(t && t.charges);
+                    if (!charges.length || t.dateDebut == null || t.dateEcheance == null) continue;
+                    const d0 = Math.floor((t.dateDebut * 1000) / 86400000), d1 = Math.floor((t.dateEcheance * 1000) / 86400000);
+                    const nDays = Math.max(d1 - d0 + 1, 1);
+                    for (const c of charges) {
+                        const key = keyFn(t, c); if (key == null) continue;
+                        const perDay = c.heures / nDays; if (!perDay) continue;
+                        if (!out[key]) out[key] = {};
+                        for (let dd = d0; dd <= d1; dd++) { const pk = periodKey(new Date(dd * 86400000), g); out[key][pk] = (out[key][pk] || 0) + perDay; }
+                    }
+                }
+                return out;
+            }
+
             return {
                 DEFAULT_STATUSES: DEFAULT_STATUSES,
                 columnarToRows: columnarToRows,
@@ -1032,7 +1052,8 @@
                 periodKey: periodKey,
                 chargeByMemberPeriod: chargeByMemberPeriod,
                 shiftPeriods: shiftPeriods,
-                periodRange: periodRange
+                periodRange: periodRange,
+                chargeMatrix: chargeMatrix
             };
         })();
         // </taskflow-core>

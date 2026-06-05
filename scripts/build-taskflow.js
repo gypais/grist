@@ -33,6 +33,7 @@ const TARGETS = [
     path.join(ROOT, 'projects', 'tasks_app', 'gantt.html'),
     path.join(ROOT, 'projects', 'tasks_app', 'calendar.html'),
     path.join(ROOT, 'projects', 'tasks_app', 'dashboard.html'),
+    path.join(ROOT, 'projects', 'tasks_app', 'plan.html'),
     path.join(ROOT, 'projects', 'whiteboard', 'index.html')
 ];
 
