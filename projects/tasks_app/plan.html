@@ -139,6 +139,7 @@ tfoot td.colres{background:var(--surface-2);z-index:2}
     <label class="chk" title="Étaler la charge sur les jours ouvrés (lun-ven) seulement"><input type="checkbox" id="chkWorkdays"> Jours ouvrés</label>
     <button class="btn" id="btnInit" title="Initialiser la charge des tâches sans charge depuis estimationH ÷ nb assignés">⚙ Init. charges</button>
     <button class="btn" id="btnExport" title="Exporter le plan en CSV (COPIL)">⬇ CSV</button>
+    <button class="btn" id="btnTimeline" title="Timeline par personne : les tâches de chacun en barres sur la fenêtre">⊞ Timeline</button>
   </div>
   <div class="alerts" id="alerts"></div>
   <div class="gridwrap" id="gridwrap"><div class="empty"><div class="ic">▦</div><div>Chargement…</div></div></div>
@@ -164,6 +165,28 @@ tfoot td.colres{background:var(--surface-2);z-index:2}
   <div class="pf"><button class="btn" id="pGantt" style="width:100%">↗ Ouvrir dans le Gantt</button></div>
 </div>
 <div id="toast" class="toast"></div>
+<style>
+.tlpanel { position: fixed; left: 0; right: 0; bottom: 0; height: 46vh; background: var(--card-bg, #1a2236); border-top: 1px solid var(--border, #2a3550); box-shadow: 0 -12px 40px rgba(0,0,0,.4); transform: translateY(100%); transition: transform .25s ease; z-index: 45; display: flex; flex-direction: column; }
+.tlpanel.open { transform: translateY(0); }
+.tlhead { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--border, #2a3550); flex: none; font-size: .9rem; }
+.tlhead .tlrange { color: var(--text-muted, #94a3b8); font-size: .76rem; margin-left: 8px; font-weight: 400; }
+.tlhead .x { background: none; border: none; color: var(--text-muted, #94a3b8); font-size: 1.4rem; cursor: pointer; line-height: 1; }
+.tlbody { overflow: auto; flex: 1; padding-bottom: 14px; }
+.tl-axis { display: flex; position: sticky; top: 0; background: var(--card-bg, #1a2236); z-index: 2; padding: 5px 0; border-bottom: 1px solid var(--border, #2a3550); }
+.tl-axis .c { flex: 1; text-align: center; font-size: .6rem; color: var(--text-muted, #94a3b8); border-left: 1px solid var(--border, #2a3550); }
+.tl-grp { font-size: .74rem; font-weight: 700; color: var(--text, #e2e8f0); padding: 9px 14px 3px; display: flex; align-items: center; gap: 7px; }
+.tl-grp .tava { width: 18px; height: 18px; border-radius: 50%; color: #fff; font-size: .56rem; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; flex: none; }
+.tl-row { display: flex; align-items: center; height: 23px; }
+.tl-lbl { width: 160px; flex: none; font-size: .71rem; color: var(--text-muted, #cbd5e1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 8px 0 28px; }
+.tl-track { flex: 1; position: relative; height: 100%; border-left: 1px solid var(--border, #2a3550); }
+.tl-bar { position: absolute; top: 4px; height: 15px; min-width: 4px; border-radius: 4px; font-size: .59rem; color: #fff; line-height: 15px; padding: 0 5px; overflow: hidden; white-space: nowrap; box-shadow: 0 1px 3px rgba(0,0,0,.35); cursor: pointer; }
+.tl-bar:hover { filter: brightness(1.12); }
+.tl-empty { padding: 26px; text-align: center; color: var(--text-muted, #94a3b8); font-size: .82rem; }
+</style>
+<div class="tlpanel" id="tlPanel">
+  <div class="tlhead"><div><strong>Timeline par personne</strong><span class="tlrange" id="tlRange"></span></div><button class="x" id="tlClose">×</button></div>
+  <div class="tlbody" id="tlBody"></div>
+</div>
 <div class="overlay" id="cfOverlay"></div>
 <div class="cfmodal" id="cfModal">
   <h3 id="cfTitle"></h3>
@@ -507,7 +530,7 @@ const S = {
   tasks: [], team: [], projects: [],
   granularity: 'week', offset: 0, horizon: 12,
   groupBy: 'person', unit: 'pct', includeDone: false, derive: false, mode: 'prevu', workdays: false, allocUnit: 'h',
-  demo: false, extFilters: null
+  demo: false, extFilters: null, timeline: false
 };
 let statusCfg = TF.buildStatusConfig(TF.DEFAULT_STATUSES, 'default'); // #1 : statuts dynamiques — alimenté par TF.loadStatusConfig en Grist (terminal/libellés depuis les vrais choix)
 
@@ -684,6 +707,53 @@ function render() {
   wrap.querySelectorAll('td.cell').forEach(td => td.addEventListener('click', () => openCell(td.dataset.key, td.dataset.period)));
   wrap.querySelectorAll('td.colres.clk').forEach(td => td.addEventListener('click', () => openResource(td.dataset.res)));
   renderAlerts(matrix, periods);
+  if (S.timeline) renderTimeline();
+}
+
+// Timeline par personne : tâches de chacun en barres sur la même fenêtre que la heatmap (panel du bas).
+function toggleTimeline() {
+  S.timeline = !S.timeline;
+  const b = document.getElementById('btnTimeline'); if (b) b.classList.toggle('active', S.timeline);
+  const p = document.getElementById('tlPanel');
+  if (S.timeline) { renderTimeline(); p.classList.add('open'); } else p.classList.remove('open');
+}
+function renderTimeline() {
+  const body = document.getElementById('tlBody');
+  if (S.groupBy !== 'person') { document.getElementById('tlRange').textContent = ''; body.innerHTML = '<div class="tl-empty">La timeline par personne est disponible en groupement « Personne ».</div>'; return; }
+  const periods = TF.periodRange(TF.shiftPeriods(new Date(), S.granularity, S.offset), S.granularity, S.horizon);
+  const starts = periodStarts(TF.shiftPeriods(new Date(), S.granularity, S.offset), S.granularity, S.horizon);
+  document.getElementById('tlRange').textContent = '  ' + plabel(periods[0]) + ' → ' + plabel(periods[periods.length - 1]);
+  const winStart = starts[0].getTime();
+  const winEnd = TF.shiftPeriods(starts[starts.length - 1], S.granularity, 1).getTime();
+  const span = (winEnd - winStart) || 1;
+  const tasks = planTasks().filter(t => t.dateDebut != null && t.dateEcheance != null);
+  const rows = buildRows().filter(r => r.members && r.members.length);
+  let h = '<div class="tl-axis"><div style="width:160px;flex:none"></div>';
+  periods.forEach(p => { h += '<div class="c">' + plabel(p) + '</div>'; });
+  h += '</div>';
+  let any = false;
+  for (const row of rows) {
+    const mine = tasks
+      .filter(t => effCharges(t).some(c => String(c.teamId) === String(row.key)))
+      .filter(t => (t.dateEcheance * 1000) >= winStart && (t.dateDebut * 1000) <= winEnd)
+      .sort((a, b) => a.dateDebut - b.dateDebut);
+    if (!mine.length) continue;
+    any = true;
+    const ini = row.label.split(' ').filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase();
+    h += '<div class="tl-grp"><span class="tava" style="background:' + row.color + '">' + esc(ini) + '</span>' + esc(row.label) + ' · ' + mine.length + ' tâche' + (mine.length > 1 ? 's' : '') + '</div>';
+    for (const t of mine) {
+      const ts = t.dateDebut * 1000, te = t.dateEcheance * 1000;
+      const l = Math.max(0, Math.min(1, (ts - winStart) / span)) * 100;
+      const rr = Math.max(0, Math.min(1, (te - winStart) / span)) * 100;
+      const w = Math.max(rr - l, 1.4);
+      const col = (statusCfg.byValue[t.statut] || {}).fillColor || '#64748b';
+      const hrs = (effCharges(t).find(c => String(c.teamId) === String(row.key)) || {}).heures || 0;
+      h += '<div class="tl-row"><div class="tl-lbl" title="' + esc(t.titre) + '">' + esc(t.titre) + '</div><div class="tl-track"><div class="tl-bar" style="left:' + l.toFixed(1) + '%;width:' + w.toFixed(1) + '%;background:' + col + '" data-id="' + t.id + '" title="' + esc(t.titre) + ' · ' + r1(hrs) + ' h">' + esc(t.titre) + '</div></div></div>';
+    }
+  }
+  if (!any) h += '<div class="tl-empty">Aucune tâche datée pour les personnes affichées sur cette fenêtre.</div>';
+  body.innerHTML = h;
+  body.querySelectorAll('.tl-bar').forEach(b => b.addEventListener('click', () => { const id = Number(b.dataset.id); try { if (!S.demo && grist.setSelectedRows) grist.setSelectedRows([id]); } catch (e) {} }));
 }
 
 function fmtCell(hr, capP) {
@@ -926,6 +996,8 @@ function bindToolbar() {
   document.getElementById('chkWorkdays').onchange = (e) => { S.workdays = e.target.checked; render(); };
   document.getElementById('btnExport').onclick = exportCSV;
   document.getElementById('btnInit').onclick = initCharges;
+  document.getElementById('btnTimeline').onclick = toggleTimeline;
+  document.getElementById('tlClose').onclick = toggleTimeline;
   document.getElementById('pClose').onclick = closePanel;
   document.getElementById('overlay').onclick = closePanel;
 }
