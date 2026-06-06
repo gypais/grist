@@ -192,6 +192,9 @@ tfoot td.colres{background:var(--surface-2);z-index:2}
 .tl-axis .c.on { color: var(--primary, #7b8cff); font-weight: 700; }
 .tl-bar { z-index: 1; }
 .tl-bar.hot { z-index: 3; outline: 2px solid #fff; box-shadow: 0 0 0 2px rgba(123,140,255,.7), 0 2px 7px rgba(0,0,0,.45); }
+.tl-bar { cursor: grab; }
+.tl-bar.dragging { pointer-events: none; opacity: .9; z-index: 6; box-shadow: 0 6px 20px rgba(0,0,0,.55); }
+.tl-row.drop-tgt, .tl-grp.drop-tgt { background: rgba(123,140,255,.16); box-shadow: inset 0 0 0 1px rgba(123,140,255,.65); }
 .grid td.cell.sel { outline: 2px solid var(--primary, #7b8cff); outline-offset: -2px; border-radius: 3px; }
 .grid tr.grp td { background: rgba(123,140,255,.07); }
 .grid .colres.ghead { font-weight: 700; }
@@ -847,7 +850,7 @@ function renderTimeline() {
     if (pending) { h += '<div class="tl-sec"><span class="gdot" style="background:' + pending.color + '"></span>' + esc(pending.label) + '</div>'; pending = null; }
     const isF = fKey != null && laneKey === fKey;
     const ini = row.label.split(' ').filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase();
-    h += '<div class="tl-grp' + (grouped ? ' tl-ind' : '') + (isF ? ' tl-focus' : '') + '"' + (isF ? ' id="tlFocus"' : '') + '><span class="tava" style="background:' + row.color + '">' + esc(ini) + '</span>' + esc(row.label) + ' · ' + mine.length + ' tâche' + (mine.length > 1 ? 's' : '') + '</div>';
+    h += '<div class="tl-grp' + (grouped ? ' tl-ind' : '') + (isF ? ' tl-focus' : '') + '"' + (isF ? ' id="tlFocus"' : '') + ' data-lane="' + esc(laneKey) + '"><span class="tava" style="background:' + row.color + '">' + esc(ini) + '</span>' + esc(row.label) + ' · ' + mine.length + ' tâche' + (mine.length > 1 ? 's' : '') + '</div>';
     for (const t of mine) {
       const ts = t.dateDebut * 1000, te = t.dateEcheance * 1000;
       const l = Math.max(0, Math.min(1, (ts - winStart) / span)) * 100;
@@ -857,13 +860,68 @@ function renderTimeline() {
       const hrs = (effCharges(t).find(c => String(c.teamId) === String(pid)) || {}).heures || 0;
       const hot = isF && fIdx >= 0 && ts < bandE && te > bandS; // tâche dans la période focalisée
       const tp = TF.periodKey(new Date(Math.max(ts, winStart)), S.granularity); // période à ouvrir si "Ajuster"
-      h += '<div class="tl-row' + (grouped ? ' tl-ind' : '') + (isF ? ' tl-focus' : '') + '"><div class="tl-lbl" title="' + esc(t.titre) + '">' + esc(t.titre) + '</div><div class="tl-track">' + (bandStyle ? '<div class="tl-band" style="' + bandStyle + '"></div>' : '') + '<div class="tl-bar' + (hot ? ' hot' : '') + '" style="left:' + l.toFixed(1) + '%;width:' + w.toFixed(1) + '%;background:' + col + '" data-id="' + t.id + '" data-lane="' + esc(laneKey) + '" data-period="' + tp + '" title="' + esc(t.titre) + ' · ' + r1(hrs) + ' h — cliquer pour l’aperçu">' + esc(t.titre) + '</div></div></div>';
+      h += '<div class="tl-row' + (grouped ? ' tl-ind' : '') + (isF ? ' tl-focus' : '') + '" data-lane="' + esc(laneKey) + '"><div class="tl-lbl" title="' + esc(t.titre) + '">' + esc(t.titre) + '</div><div class="tl-track">' + (bandStyle ? '<div class="tl-band" style="' + bandStyle + '"></div>' : '') + '<div class="tl-bar' + (hot ? ' hot' : '') + '" style="left:' + l.toFixed(1) + '%;width:' + w.toFixed(1) + '%;background:' + col + '" data-id="' + t.id + '" data-lane="' + esc(laneKey) + '" data-period="' + tp + '" title="' + esc(t.titre) + ' · ' + r1(hrs) + ' h — cliquer pour l’aperçu">' + esc(t.titre) + '</div></div></div>';
     }
   }
   if (!any) h += '<div class="tl-empty">Aucune tâche datée sur cette fenêtre.</div>';
   body.innerHTML = h;
-  body.querySelectorAll('.tl-bar').forEach(b => b.addEventListener('click', (e) => { e.stopPropagation(); openTaskPop(Number(b.dataset.id), b, b.dataset.lane, b.dataset.period); }));
+  body.querySelectorAll('.tl-bar').forEach(b => b.addEventListener('mousedown', (e) => startBarDrag(e, b)));
   const fg = document.getElementById('tlFocus'); if (fg) fg.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
+// Drag d'une barre = REPLANIFIER (horizontal) ou RÉAFFECTER (vers une autre lane). Clic simple (sans drag) = aperçu.
+function startBarDrag(e, bar) {
+  if (e.button !== 0) return;
+  const taskId = Number(bar.dataset.id), fromLane = bar.dataset.lane, period = bar.dataset.period;
+  const track = bar.parentElement, trackW = track.clientWidth || 1;
+  const starts = periodStarts(TF.shiftPeriods(new Date(), S.granularity, S.offset), S.granularity, S.horizon);
+  const winStart = starts[0].getTime();
+  const winEnd = TF.shiftPeriods(starts[starts.length - 1], S.granularity, 1).getTime();
+  const totalDays = (winEnd - winStart) / 86400000;
+  const startX = e.clientX, startY = e.clientY;
+  let dragging = false;
+  const clearTgt = () => document.querySelectorAll('.drop-tgt').forEach(n => n.classList.remove('drop-tgt'));
+  function move(ev) {
+    const dx = ev.clientX - startX, dy = ev.clientY - startY;
+    if (!dragging && Math.abs(dx) + Math.abs(dy) > 4) { dragging = true; bar.classList.add('dragging'); document.body.style.cursor = 'grabbing'; closeTaskPop(); }
+    if (!dragging) return;
+    bar.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+    clearTgt();
+    const el = document.elementFromPoint(ev.clientX, ev.clientY);
+    const lane = el && el.closest('[data-lane]');
+    if (lane && lane.dataset.lane !== fromLane) lane.classList.add('drop-tgt');
+  }
+  function up(ev) {
+    document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up);
+    document.body.style.cursor = ''; clearTgt();
+    bar.classList.remove('dragging'); bar.style.transform = '';
+    if (!dragging) { openTaskPop(taskId, bar, fromLane, period); return; }
+    const ddays = Math.round((ev.clientX - startX) / trackW * totalDays);
+    const el = document.elementFromPoint(ev.clientX, ev.clientY);
+    const laneEl = el && el.closest('[data-lane]');
+    applyBarDrag(taskId, fromLane, laneEl ? laneEl.dataset.lane : fromLane, ddays);
+  }
+  document.addEventListener('mousemove', move); document.addEventListener('mouseup', up);
+  e.preventDefault();
+}
+async function applyBarDrag(taskId, fromLane, toLane, ddays) {
+  const t = S.tasks.find(x => x.id === taskId); if (!t) return;
+  const lanePid = l => { l = String(l); const i = l.indexOf('|'); return Number(i >= 0 ? l.slice(i + 1) : l); };
+  const fromPid = lanePid(fromLane), toPid = lanePid(toLane);
+  const reassign = !isNaN(toPid) && toPid && toPid !== fromPid && !!teamById(toPid);
+  if (!reassign && !ddays) return;  // rien à faire (la barre est déjà remise en place)
+  let newDebut = null, newEch = null;
+  if (ddays && t.dateDebut != null && t.dateEcheance != null) { newDebut = gToInput(t.dateDebut + ddays * 86400); newEch = gToInput(t.dateEcheance + ddays * 86400); }
+  // confirmation pour une réaffectation ou un gros déplacement (≥ 1 semaine)
+  if (reassign || Math.abs(ddays) >= 7) {
+    const parts = [];
+    if (reassign) parts.push('Réaffecter « ' + t.titre + ' » de ' + ((teamById(fromPid) || {}).nom || '?') + ' à ' + ((teamById(toPid) || {}).nom || '?'));
+    if (ddays) parts.push((reassign ? 'et décaler' : 'Décaler') + ' les dates de ' + (ddays > 0 ? '+' : '') + ddays + ' j');
+    const ok = await confirmModal('Confirmer le déplacement', parts.join(' ') + ' ?');
+    if (!ok) { render(); return; }
+  }
+  if (newDebut && newEch) setDates(taskId, newDebut, newEch);
+  if (reassign) reassignCharge(taskId, fromPid, toPid);
 }
 
 // Aperçu d'une tâche (composant court repris du design UX/UI) : on sait de quoi il retourne avant d'ajuster.
