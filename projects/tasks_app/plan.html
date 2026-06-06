@@ -840,15 +840,30 @@ function bindToolbar() {
 }
 
 async function loadGrist() {
-  const [tasks, team, projects] = await Promise.all([
+  let [tasks, team, projects] = await Promise.all([
     grist.docApi.fetchTable('Tasks').catch(() => null),
     grist.docApi.fetchTable('Team').catch(() => null),
     grist.docApi.fetchTable('Projects').catch(() => null)
   ]);
+  team = await ensurePlanColumns(team);
   S.tasks = tasks ? TF.columnarToRows(tasks) : [];
   S.team = team ? TF.columnarToRows(team) : [];
   S.projects = projects ? TF.columnarToRows(projects) : [];
   render();
+}
+
+// Le widget Plan contribue ses colonnes au schema Team (capaciteHebdo, indispos),
+// au meme titre que les autres widgets completent le schema via ensureSchema.
+let _colsEnsured = false;
+async function ensurePlanColumns(team) {
+  if (!team || _colsEnsured) return team;
+  const add = [];
+  if (!('capaciteHebdo' in team)) add.push(['AddColumn', 'Team', 'capaciteHebdo', { type: 'Numeric' }]);
+  if (!('indispos' in team)) add.push(['AddColumn', 'Team', 'indispos', { type: 'Text' }]);
+  _colsEnsured = true; // garde anti-ré-entrance (onRecords rappelle loadGrist pendant l'await)
+  if (!add.length) return team;
+  try { await grist.docApi.applyUserActions(add); return await grist.docApi.fetchTable('Team').catch(() => team); }
+  catch (e) { return team; }
 }
 
 function loadDemo() {
