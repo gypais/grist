@@ -605,7 +605,7 @@
         const TASKFLOW_SCHEMA = {
             Team: [{ id: 'nom', type: 'Text' }, { id: 'email', type: 'Text' }, { id: 'avatar', type: 'Text' }, { id: 'role', type: 'Choice' }, { id: 'actif', type: 'Bool' }, { id: 'couleur', type: 'Text' }, { id: 'capaciteHebdo', type: 'Numeric' }, { id: 'indispos', type: 'Text' }],  // TEAM-01 ; capaciteHebdo + indispos (JSON [{start,end,label}]) : plan de charge
             Projects: [{ id: 'nom', type: 'Text' }, { id: 'couleur', type: 'Text' }, { id: 'dateDebut', type: 'Date' }, { id: 'dateFin', type: 'Date' }, { id: 'responsable', type: 'Ref:Team' }, { id: 'actif', type: 'Bool' }],
-            Tasks: [{ id: 'titre', type: 'Text' }, { id: 'description', type: 'Text' }, { id: 'dateDebut', type: 'Date' }, { id: 'dateEcheance', type: 'Date' }, { id: 'priorite', type: 'Choice' }, { id: 'statut', type: 'Choice' }, { id: 'progression', type: 'Numeric' }, { id: 'projet', type: 'Ref:Projects' }, { id: 'assignees', type: 'RefList:Team' }, { id: 'type', type: 'Choice' }, { id: 'dependDe', type: 'RefList:Tasks' }, { id: 'tags', type: 'ChoiceList' }, { id: 'estimationH', type: 'Numeric' }, { id: 'tempsPasse', type: 'Numeric' }, { id: 'couleur', type: 'Text' }, { id: 'subtasks', type: 'Text' }, { id: 'parentTask', type: 'Ref:Tasks' }, { id: 'charges', type: 'Text' }]  // WBS-01: parentTask ; #3: charges = plan de charge JSON [{teamId,heures}]
+            Tasks: [{ id: 'titre', type: 'Text' }, { id: 'description', type: 'Text' }, { id: 'dateDebut', type: 'Date' }, { id: 'dateEcheance', type: 'Date' }, { id: 'priorite', type: 'Choice' }, { id: 'statut', type: 'Choice' }, { id: 'progression', type: 'Numeric' }, { id: 'projet', type: 'Ref:Projects' }, { id: 'assignees', type: 'RefList:Team' }, { id: 'type', type: 'Choice' }, { id: 'dependDe', type: 'RefList:Tasks' }, { id: 'tags', type: 'ChoiceList' }, { id: 'estimationH', type: 'Numeric' }, { id: 'tempsPasse', type: 'Numeric' }, { id: 'couleur', type: 'Text' }, { id: 'subtasks', type: 'Text' }, { id: 'parentTask', type: 'Ref:Tasks' }, { id: 'charges', type: 'Text' }, { id: 'dateCloture', type: 'Date' }]  // WBS-01: parentTask ; #3: charges = plan de charge JSON [{teamId,heures}] ; dateCloture = date de cloture auto (statut terminal) -> realise/delai
         };
         const PRIORITY_LABELS = { 1: 'Critique', 2: 'Haute', 3: 'Moyenne', 4: 'Basse' };
         const PRIORITY_COLORS = { 1: '#e5484d', 2: '#f0982d', 3: '#4c7ef3', 4: '#8a97ab' };
@@ -1387,7 +1387,7 @@
             if (colKey === null) return;
 
             let updates = {};
-            if (groupBy === 'statut') { updates.statut = colKey; if (TF.isTerminal(statusCfg, colKey)) updates.progression = 100; }
+            if (groupBy === 'statut') { updates.statut = colKey; const _wasT = TF.isTerminal(statusCfg, task.statut), _nowT = TF.isTerminal(statusCfg, colKey); if (_nowT) { updates.progression = 100; if (!_wasT) updates.dateCloture = Math.floor(Date.now() / 1000); } else if (_wasT) updates.dateCloture = null; }
             else if (groupBy === 'priorite') updates.priorite = parseInt(colKey, 10);
             else if (groupBy === 'projet') updates.projet = colKey === 'none' ? null : parseInt(colKey, 10);
             
@@ -1493,7 +1493,7 @@
             updateField('parentTask', newParentId);
         }
 
-        function cloneTaskData(task) { return { titre: task.titre || '', description: task.description || '', type: task.type || 'tache', priorite: String(task.priorite || '3'), statut: task.statut || 'todo', progression: task.progression || 0, dateDebut: task.dateDebut, dateEcheance: task.dateEcheance, projet: task.projet || null, assignees: getAssignees(task), dependDe: getDependsOn(task), tags: getTags(task), estimationH: task.estimationH || null, tempsPasse: task.tempsPasse || null, subtasks: getSubtasks(task), couleur: task.couleur || null, parentTask: task.parentTask || null, charges: TF.parseCharges(task.charges) }; }
+        function cloneTaskData(task) { return { titre: task.titre || '', description: task.description || '', type: task.type || 'tache', priorite: String(task.priorite || '3'), statut: task.statut || 'todo', progression: task.progression || 0, dateDebut: task.dateDebut, dateEcheance: task.dateEcheance, projet: task.projet || null, assignees: getAssignees(task), dependDe: getDependsOn(task), tags: getTags(task), estimationH: task.estimationH || null, tempsPasse: task.tempsPasse || null, subtasks: getSubtasks(task), couleur: task.couleur || null, parentTask: task.parentTask || null, charges: TF.parseCharges(task.charges), dateCloture: task.dateCloture || null }; }
         
         // FIX: Synchroniser editData vers le task local dans tasks[]
         function syncLocalTask() {
@@ -1756,6 +1756,8 @@
             if (!data) return;
             // BUG-01 FIX: Utiliser parseInputDate pour éviter problèmes de timezone
             if (field === 'dateDebut' || field === 'dateEcheance') value = value ? dateToGrist(parseInputDate(value)) : null;
+            // dateCloture auto : posee quand on passe au statut terminal, effacee si on rouvre
+            if (field === 'statut') { const _wasT = TF.isTerminal(statusCfg, data.statut), _nowT = TF.isTerminal(statusCfg, value); if (_nowT && !_wasT) data.dateCloture = Math.floor(Date.now() / 1000); else if (!_nowT && _wasT) data.dateCloture = null; }
             data[field] = value;
             if (field === 'type' && value === 'jalon' && data.dateDebut) data.dateEcheance = data.dateDebut;
             
@@ -1920,7 +1922,7 @@
             if (!data || panelState.isNew || !gristReady) return;
             if (data.dateDebut && data.dateEcheance && data.dateDebut > data.dateEcheance) { showToast('La date de début ne peut pas dépasser la date de fin', 'error'); return; }
             syncLocalTask();  // FIX: Synchroniser localement avant envoi API
-            const record = { titre: data.titre, description: data.description, type: data.type, priorite: data.priorite, statut: data.statut, progression: data.progression, dateDebut: data.dateDebut, dateEcheance: data.dateEcheance, projet: data.projet, assignees: toGristRefList(data.assignees), dependDe: toGristRefList(data.dependDe), tags: toGristChoiceList(data.tags), estimationH: data.estimationH, tempsPasse: data.tempsPasse, subtasks: subtasksToJson(data.subtasks), couleur: data.couleur || null, parentTask: data.parentTask || null, charges: TF.chargesToJson((data.charges || []).filter(c => data.assignees.includes(c.teamId))) };
+            const record = { titre: data.titre, description: data.description, type: data.type, priorite: data.priorite, statut: data.statut, progression: data.progression, dateDebut: data.dateDebut, dateEcheance: data.dateEcheance, projet: data.projet, assignees: toGristRefList(data.assignees), dependDe: toGristRefList(data.dependDe), tags: toGristChoiceList(data.tags), estimationH: data.estimationH, tempsPasse: data.tempsPasse, subtasks: subtasksToJson(data.subtasks), couleur: data.couleur || null, parentTask: data.parentTask || null, charges: TF.chargesToJson((data.charges || []).filter(c => data.assignees.includes(c.teamId))), dateCloture: data.dateCloture || null };
             try { await grist.docApi.applyUserActions([['UpdateRecord', 'Tasks', panelState.taskId, record]]); showSaveIndicator(); } catch (e) { showToast('Erreur sauvegarde', 'error'); }
         }
 
@@ -1928,7 +1930,7 @@
             const data = panelState.editData;
             if (!data || !data.titre?.trim()) { showToast('Titre requis', 'error'); return; }
             if (data.dateDebut && data.dateEcheance && data.dateDebut > data.dateEcheance) { showToast('La date de début ne peut pas dépasser la date de fin', 'error'); return; }
-            const record = { titre: data.titre, description: data.description || '', type: data.type || 'tache', priorite: data.priorite || '3', statut: data.statut || 'todo', progression: data.progression || 0, dateDebut: data.dateDebut, dateEcheance: data.dateEcheance, projet: data.projet, assignees: toGristRefList(data.assignees), dependDe: toGristRefList(data.dependDe), tags: toGristChoiceList(data.tags), estimationH: data.estimationH, tempsPasse: data.tempsPasse, subtasks: subtasksToJson(data.subtasks), couleur: data.couleur || null, parentTask: data.parentTask || null, charges: TF.chargesToJson((data.charges || []).filter(c => data.assignees.includes(c.teamId))) };
+            const record = { titre: data.titre, description: data.description || '', type: data.type || 'tache', priorite: data.priorite || '3', statut: data.statut || 'todo', progression: data.progression || 0, dateDebut: data.dateDebut, dateEcheance: data.dateEcheance, projet: data.projet, assignees: toGristRefList(data.assignees), dependDe: toGristRefList(data.dependDe), tags: toGristChoiceList(data.tags), estimationH: data.estimationH, tempsPasse: data.tempsPasse, subtasks: subtasksToJson(data.subtasks), couleur: data.couleur || null, parentTask: data.parentTask || null, charges: TF.chargesToJson((data.charges || []).filter(c => data.assignees.includes(c.teamId))), dateCloture: data.dateCloture || null };
             if (gristReady) {
                 try { await grist.docApi.applyUserActions([['AddRecord', 'Tasks', null, record]]); showToast('Créée', 'success'); await loadAllData(); closePanel(); } catch (e) { showToast('Erreur création', 'error'); }
             } else { record.id = Date.now(); tasks.push(record); showToast('Créée', 'success'); render(); closePanel(); }
