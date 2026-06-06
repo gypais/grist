@@ -32,24 +32,25 @@ label.chk{display:inline-flex;align-items:center;gap:6px;font-size:0.8rem;color:
 .alerts{padding:7px 14px;font-size:0.78rem;color:var(--text-muted);border-bottom:1px solid var(--border);display:flex;gap:16px;flex-wrap:wrap}
 .alerts .warn{color:var(--warn)} .alerts .over{color:var(--over)}
 .gridwrap{flex:1;overflow:auto;position:relative}
-table.grid{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:0.8rem}
+:root{--res-col:184px;--sum-col:80px}
+table.grid{border-collapse:separate;border-spacing:0;width:100%;table-layout:fixed;font-size:0.8rem}
 table.grid th,table.grid td{padding:0;border-bottom:1px solid var(--border)}
 table.grid thead th{position:sticky;top:0;z-index:3;background:var(--surface);color:var(--text-muted);font-weight:600;padding:8px 8px;text-align:center;white-space:nowrap;border-bottom:1px solid var(--border)}
 table.grid thead th.now{color:var(--primary)}
-.colres{position:sticky;left:0;z-index:2;background:var(--surface);text-align:left!important;min-width:190px;border-right:1px solid var(--border)}
+.colres{position:sticky;left:0;z-index:2;background:var(--surface);text-align:left!important;width:var(--res-col);min-width:var(--res-col);border-right:1px solid var(--border)}
 thead th.colres{z-index:4}
 .res{display:flex;align-items:center;gap:8px;padding:7px 10px}
 .ava{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.66rem;font-weight:700;color:#fff;flex-shrink:0}
 .res .nm{font-weight:600;white-space:nowrap}
 .res .cap{color:var(--text-muted);font-size:0.72rem}
 .cell{text-align:center;padding:0;cursor:pointer}
-.cell .v{display:block;padding:6px 8px;font-weight:600;font-size:0.78rem;color:#fff;min-width:46px}
+.cell .v{display:block;padding:6px 4px;font-weight:600;font-size:0.78rem;color:#fff;min-width:0}
 .cell .dot{display:block;padding:6px 8px;color:var(--off)}
 .cell:hover .v{outline:2px solid rgba(255,255,255,.45);outline-offset:-2px}
 .cell.nowcol,thead th.now,tfoot td.nowcol{box-shadow:inset 1px 0 var(--primary),inset -1px 0 var(--primary)}
 thead th .pk{font-weight:700}
 thead th .psub{font-weight:400;font-size:0.65rem;color:var(--off);margin-top:1px}
-th.sum,td.sum{text-align:center;background:var(--surface-2);border-left:1px solid var(--border);white-space:nowrap;padding:6px 12px}
+th.sum,td.sum{text-align:center;background:var(--surface-2);border-left:1px solid var(--border);white-space:nowrap;padding:6px 8px;width:var(--sum-col)}
 td.sum .sh{font-weight:700;font-size:0.8rem}
 td.sum .sp{font-size:0.67rem;color:var(--text-muted)}
 tfoot td{position:sticky;bottom:0;background:var(--surface-2);font-weight:600;color:var(--text);padding:7px 6px;text-align:center;border-top:1px solid var(--border)}
@@ -171,19 +172,22 @@ tfoot td.colres{background:var(--surface-2);z-index:2}
 </div>
 <div id="toast" class="toast"></div>
 <style>
-.tlpanel { position: fixed; left: 0; right: 0; bottom: 0; height: 46vh; background: var(--card-bg, #1a2236); border-top: 1px solid var(--border, #2a3550); box-shadow: 0 -12px 40px rgba(0,0,0,.4); transform: translateY(100%); transition: transform .25s ease; z-index: 45; display: flex; flex-direction: column; }
+.tlpanel { position: fixed; left: 0; right: 0; bottom: 0; height: 46vh; background: var(--card-bg, #1a2236); border-top: 1px solid var(--border, #2a3550); box-shadow: 0 -12px 40px rgba(0,0,0,.4); transform: translateY(100%); transition: transform .25s ease, right .2s ease; z-index: 45; display: flex; flex-direction: column; }
+body.panel-open .tlpanel { right: min(380px, 92vw); }
+#app { transition: margin-right .2s ease; }
+body.panel-open #app { margin-right: min(380px, 92vw); }
 .tlpanel.open { transform: translateY(0); }
 .tlhead { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--border, #2a3550); flex: none; font-size: .9rem; }
 .tlhead .tlrange { color: var(--text-muted, #94a3b8); font-size: .76rem; margin-left: 8px; font-weight: 400; }
 .tlhead .x { background: none; border: none; color: var(--text-muted, #94a3b8); font-size: 1.4rem; cursor: pointer; line-height: 1; }
 .tlbody { overflow: auto; flex: 1; padding-bottom: 14px; }
-.tl-axis { display: flex; position: sticky; top: 0; background: var(--card-bg, #1a2236); z-index: 2; padding: 5px 0; border-bottom: 1px solid var(--border, #2a3550); }
+.tl-axis { display: flex; position: sticky; top: 0; background: var(--card-bg, #1a2236); z-index: 2; padding: 5px var(--sum-col) 5px 0; border-bottom: 1px solid var(--border, #2a3550); }
 .tl-axis .c { flex: 1; text-align: center; font-size: .6rem; color: var(--text-muted, #94a3b8); border-left: 1px solid var(--border, #2a3550); }
 .tl-grp { font-size: .74rem; font-weight: 700; color: var(--text, #e2e8f0); padding: 9px 14px 3px; display: flex; align-items: center; gap: 7px; }
 .tl-grp .tava { width: 18px; height: 18px; border-radius: 50%; color: #fff; font-size: .56rem; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; flex: none; }
 .tl-row { display: flex; align-items: center; height: 23px; }
-.tl-lbl { width: 160px; flex: none; font-size: .71rem; color: var(--text-muted, #cbd5e1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 8px 0 28px; }
-.tl-track { flex: 1; position: relative; height: 100%; border-left: 1px solid var(--border, #2a3550); }
+.tl-lbl { width: var(--res-col); flex: none; font-size: .71rem; color: var(--text-muted, #cbd5e1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 8px 0 28px; box-sizing: border-box; }
+.tl-track { flex: 1; position: relative; height: 100%; border-left: 1px solid var(--border, #2a3550); margin-right: var(--sum-col); }
 .tl-bar { position: absolute; top: 4px; height: 15px; min-width: 4px; border-radius: 4px; font-size: .59rem; color: #fff; line-height: 15px; padding: 0 5px; overflow: hidden; white-space: nowrap; box-shadow: 0 1px 3px rgba(0,0,0,.35); cursor: pointer; }
 .tl-bar:hover { filter: brightness(1.12); }
 .tl-empty { padding: 26px; text-align: center; color: var(--text-muted, #94a3b8); font-size: .82rem; }
@@ -833,7 +837,7 @@ function renderTimeline() {
   const grouped = S.groupBy !== 'person';
   const tasks = planTasks().filter(t => t.dateDebut != null && t.dateEcheance != null);
   const rows = buildRows();
-  let h = '<div class="tl-axis"><div style="width:160px;flex:none"></div>';
+  let h = '<div class="tl-axis"><div style="width:var(--res-col);flex:none"></div>';
   periods.forEach((p, i) => { h += '<div class="c' + (i === fIdx ? ' on' : '') + '">' + plabel(p) + '</div>'; });
   h += '</div>';
   let any = false, pending = null;
@@ -1093,13 +1097,13 @@ function openCell(key, period) {
   }).join('') : '<div style="color:var(--text-muted);font-size:.82rem">Aucune tâche ' + (S.mode === 'realise' ? 'réalisée' : 'planifiée') + ' sur cette période.</div>');
   document.getElementById('pGantt').onclick = () => openInGantt(key);
   document.getElementById('overlay').classList.add('show');
-  document.getElementById('panel').classList.add('show');
+  document.getElementById('panel').classList.add('show'); document.body.classList.add('panel-open');
   // lien heatmap → cellule surlignée + timeline focalisée
   document.querySelectorAll('#gridwrap td.cell.sel').forEach(td => td.classList.remove('sel'));
   const _td = document.querySelector('#gridwrap td.cell[data-key="' + key + '"][data-period="' + period + '"]'); if (_td) _td.classList.add('sel');
   if (S.timeline) renderTimeline();
 }
-function closePanel() { S._cellKey = null; S._resId = null; document.getElementById('pGantt').style.display = ''; document.getElementById('overlay').classList.remove('show'); document.getElementById('panel').classList.remove('show'); document.querySelectorAll('#gridwrap td.cell.sel').forEach(td => td.classList.remove('sel')); if (S.timeline) renderTimeline(); }
+function closePanel() { S._cellKey = null; S._resId = null; document.getElementById('pGantt').style.display = ''; document.getElementById('overlay').classList.remove('show'); document.getElementById('panel').classList.remove('show'); document.body.classList.remove('panel-open'); document.querySelectorAll('#gridwrap td.cell.sel').forEach(td => td.classList.remove('sel')); if (S.timeline) renderTimeline(); }
 function refreshCell() { if (S._cellKey != null) openCell(S._cellKey, S._cellPeriod); }
 function setAllocUnit(u) { S.allocUnit = u; refreshCell(); }
 // Allocation éditable : agit sur Tasks.charges + COHÉRENCE assignés (option A) — recalcule la heatmap.
@@ -1168,7 +1172,7 @@ function openResource(key) {
   document.getElementById('pBody').innerHTML = html;
   document.getElementById('pGantt').style.display = 'none';
   document.getElementById('overlay').classList.add('show');
-  document.getElementById('panel').classList.add('show');
+  document.getElementById('panel').classList.add('show'); document.body.classList.add('panel-open');
 }
 async function setCapacity(memberId, val) {
   const m = teamById(memberId); if (!m) return;
