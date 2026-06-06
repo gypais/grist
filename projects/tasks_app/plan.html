@@ -69,6 +69,9 @@ tfoot td.colres{background:var(--surface-2);z-index:2}
 .panel .pb{flex:1;overflow:auto;padding:12px 14px}
 .tk{display:flex;flex-direction:column;gap:6px;padding:8px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px}
 .tk .tkmain{display:flex;align-items:center;gap:8px}
+.unitbar{display:flex;align-items:center;gap:6px;font-size:0.76rem;color:var(--text-muted);margin-bottom:10px}
+.unitbar button{background:transparent;border:1px solid var(--border);color:var(--text-muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:0.74rem}
+.unitbar button.on{background:var(--primary);color:#fff;border-color:var(--primary)}
 .tk .tkdates{display:flex;align-items:center;gap:6px;padding-left:16px;flex-wrap:wrap}
 .tk .tkdates .dl{font-size:0.8rem}
 .tk .tkdates input{background:var(--surface-2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:2px 6px;font-size:0.72rem;color-scheme:dark}
@@ -123,9 +126,11 @@ tfoot td.colres{background:var(--surface-2);z-index:2}
         <option value="role">Rôle</option>
       </select>
     </label>
+    <div class="seg" id="segMode"></div>
     <div class="seg" id="segUnit"></div>
     <label class="chk"><input type="checkbox" id="chkDone"> Inclure terminé</label>
     <label class="chk" title="Estimer la charge des tâches sans charge à partir de leur estimation ÷ nb assignés"><input type="checkbox" id="chkDerive"> Estimer</label>
+    <label class="chk" title="Étaler la charge sur les jours ouvrés (lun-ven) seulement"><input type="checkbox" id="chkWorkdays"> Jours ouvrés</label>
     <button class="btn" id="btnExport">Export</button>
   </div>
   <div class="alerts" id="alerts"></div>
@@ -436,19 +441,21 @@ const TF = (function () {
 
     // chargeMatrix : generalise chargeByMemberPeriod. Etale les charges (via getCharges,
     // defaut parseCharges) sur la duree, agrege par cle keyFn(t, charge) et periode.
-    function chargeMatrix(tasks, keyFn, granularity, getCharges) {
+    function chargeMatrix(tasks, keyFn, granularity, getCharges, workdays) {
         const g = granularity === 'month' ? 'month' : 'week';
         const out = {};
         for (const t of (tasks || [])) {
             const charges = getCharges ? getCharges(t) : parseCharges(t && t.charges);
             if (!charges.length || t.dateDebut == null || t.dateEcheance == null) continue;
             const d0 = Math.floor((t.dateDebut * 1000) / 86400000), d1 = Math.floor((t.dateEcheance * 1000) / 86400000);
-            const nDays = Math.max(d1 - d0 + 1, 1);
+            const days = [];
+            for (let dd = d0; dd <= d1; dd++) { if (workdays) { const wd = new Date(dd * 86400000).getUTCDay(); if (wd < 1 || wd > 5) continue; } days.push(dd); }
+            if (!days.length) days.push(d0);
             for (const c of charges) {
                 const key = keyFn(t, c); if (key == null) continue;
-                const perDay = c.heures / nDays; if (!perDay) continue;
+                const perDay = c.heures / days.length; if (!perDay) continue;
                 if (!out[key]) out[key] = {};
-                for (let dd = d0; dd <= d1; dd++) { const pk = periodKey(new Date(dd * 86400000), g); out[key][pk] = (out[key][pk] || 0) + perDay; }
+                for (const dd of days) { const pk = periodKey(new Date(dd * 86400000), g); out[key][pk] = (out[key][pk] || 0) + perDay; }
             }
         }
         return out;
@@ -482,7 +489,7 @@ const TF = (function () {
 const S = {
   tasks: [], team: [], projects: [],
   granularity: 'week', offset: 0, horizon: 12,
-  groupBy: 'person', unit: 'pct', includeDone: false, derive: false,
+  groupBy: 'person', unit: 'pct', includeDone: false, derive: false, mode: 'prevu', workdays: false, allocUnit: 'h',
   terminalStatuts: ['done', 'termine', 'terminé'],
   demo: false
 };
@@ -514,6 +521,13 @@ function effCharges(t) {
   const est = Number(t.estimationH) || 0, asg = getRefList(t.assignees);
   return (est > 0 && asg.length) ? asg.map(id => ({ teamId: id, heures: est / asg.length })) : [];
 }
+// Réalisé : répartit tempsPasse de la tâche au prorata des charges propres par personne.
+function realCharges(t) {
+  const cs = effCharges(t); const tot = cs.reduce((s, c) => s + c.heures, 0); const tp = Number(t.tempsPasse) || 0;
+  if (!tot || !tp) return []; return cs.map(c => ({ teamId: c.teamId, heures: c.heures * tp / tot }));
+}
+function chargesFor(t) { return S.mode === 'realise' ? realCharges(t) : effCharges(t); }
+const taskWeeks = (t) => Math.max((Math.floor(t.dateEcheance * 1000 / 86400000) - Math.floor(t.dateDebut * 1000 / 86400000) + 1) / 7, 1 / 7);
 const gToInput = (ts) => ts ? new Date(ts * 1000).toISOString().slice(0, 10) : '';
 const inputToG = (s) => s ? Math.floor(Date.parse(s + 'T00:00:00Z') / 1000) : null;
 function tasksForKey(key) {
@@ -571,14 +585,16 @@ function cellColor(h, cap) {
 function render() {
   // segments
   renderSeg('segGran', [['week', 'Sem'], ['month', 'Mois']], S.granularity, v => { S.granularity = v; S.offset = 0; render(); });
+  renderSeg('segMode', [['prevu', 'Prévu'], ['realise', 'Réalisé']], S.mode, v => { S.mode = v; render(); });
   renderSeg('segUnit', [['pct', '%'], ['hours', 'h']], S.unit, v => { S.unit = v; render(); });
   document.getElementById('selGroup').value = S.groupBy;
   document.getElementById('chkDone').checked = S.includeDone;
   document.getElementById('chkDerive').checked = S.derive;
+  document.getElementById('chkWorkdays').checked = S.workdays;
   document.getElementById('navToday').style.display = S.offset !== 0 ? '' : 'none';
 
   const tasks = planTasks();
-  const matrix = TF.chargeMatrix(tasks, keyFn(), S.granularity, effCharges);
+  const matrix = TF.chargeMatrix(tasks, keyFn(), S.granularity, chargesFor, S.workdays);
   const periods = TF.periodRange(TF.shiftPeriods(new Date(), S.granularity, S.offset), S.granularity, S.horizon);
   const nowKey = TF.periodKey(new Date(), S.granularity);
   document.getElementById('navRange').textContent = plabel(periods[0]) + ' → ' + plabel(periods[periods.length - 1]);
@@ -669,16 +685,17 @@ function renderSeg(id, opts, cur, cb) {
 function tasksInCell(key, period) {
   const kf = keyFn(); const out = [];
   for (const t of planTasks()) {
-    const charges = effCharges(t);
+    const charges = chargesFor(t);
     if (!charges.length || t.dateDebut == null || t.dateEcheance == null) continue;
     const d0 = Math.floor((t.dateDebut * 1000) / 86400000), d1 = Math.floor((t.dateEcheance * 1000) / 86400000);
-    const nDays = Math.max(d1 - d0 + 1, 1);
+    const days = []; for (let dd = d0; dd <= d1; dd++) { if (S.workdays) { const wd = new Date(dd * 86400000).getUTCDay(); if (wd < 1 || wd > 5) continue; } days.push(dd); }
+    if (!days.length) days.push(d0);
     let slice = 0, total = 0;
     for (const c of charges) {
       if (String(kf(t, c)) !== String(key)) continue;
       total += c.heures;
-      const perDay = c.heures / nDays;
-      for (let dd = d0; dd <= d1; dd++) if (TF.periodKey(new Date(dd * 86400000), S.granularity) === period) slice += perDay;
+      const perDay = c.heures / days.length;
+      for (const dd of days) if (TF.periodKey(new Date(dd * 86400000), S.granularity) === period) slice += perDay;
     }
     if (slice > 0.01) out.push({ task: t, slice: r1(slice), total: r1(total) });
   }
@@ -691,7 +708,7 @@ function openCell(key, period) {
   const rows = buildRows(); const row = rows.find(r => String(r.key) === String(key));
   const items = tasksInCell(key, period);
   const tot = r1(items.reduce((s, i) => s + i.slice, 0));
-  const editable = S.groupBy === 'person';
+  const editable = S.groupBy === 'person' && S.mode === 'prevu';
   const tid = Number(key);
   const others = activeTeam().filter(m => m.id !== tid);
   const _starts = periodStarts(TF.shiftPeriods(new Date(), S.granularity, S.offset), S.granularity, S.horizon);
@@ -699,22 +716,29 @@ function openCell(key, period) {
   const capP = row && _pi >= 0 ? capForRow(row, _starts[_pi]) : 0;
   document.getElementById('pTitle').textContent = (row ? row.label : key) + ' — ' + plabel(period);
   const capTxt = capP > 0 ? ' · capacité ' + Math.round(capP) + 'h (' + Math.round(tot / capP * 100) + '%)' : '';
-  document.getElementById('pSub').textContent = tot + ' h sur la période' + capTxt + (editable ? ' · allocation éditable' : '');
-  document.getElementById('pBody').innerHTML = items.length ? items.map(i => {
+  document.getElementById('pSub').textContent = tot + (S.mode === 'realise' ? ' h réalisées' : ' h planifiées') + capTxt + (editable ? ' · allocation éditable' : '');
+  const capWk = editable ? capOf(teamById(tid)) : 0;
+  const unitToggle = editable ? '<div class="unitbar">Allouer en <button class="' + (S.allocUnit === 'h' ? 'on' : '') + '" onclick="setAllocUnit(\'h\')">heures</button><button class="' + (S.allocUnit === 'pct' ? 'on' : '') + '" onclick="setAllocUnit(\'pct\')">% capacité</button></div>' : '';
+  document.getElementById('pBody').innerHTML = unitToggle + (items.length ? items.map(i => {
     const p = projById(i.task.projet);
     const sliceTxt = (p ? esc(p.nom) : 'Sans projet') + ' · ' + i.slice + ' h cette ' + (S.granularity === 'month' ? 'période' : 'sem.');
+    const usePct = editable && S.allocUnit === 'pct' && capWk > 0;
+    const wks = taskWeeks(i.task);
+    const val = usePct ? Math.round(i.total / (capWk * wks) * 100) : i.total;
+    const conv = usePct ? '((parseFloat(this.value)||0)/100*' + capWk + '*' + wks.toFixed(3) + ')' : '(parseFloat(this.value)||0)';
     const right = editable
-      ? '<div class="tkedit"><input type="number" min="0" step="0.5" value="' + i.total + '" title="Charge totale allouée sur la tâche (h)" onchange="setCharge(' + i.task.id + ',' + tid + ',parseFloat(this.value)||0)"><span class="u">h</span><select title="Réaffecter à un autre membre" onchange="if(this.value)reassignCharge(' + i.task.id + ',' + tid + ',parseInt(this.value))"><option value="">⇄</option>' + others.map(m => '<option value="' + m.id + '">→ ' + esc(m.nom) + '</option>').join('') + '</select></div>'
+      ? '<div class="tkedit"><input type="number" min="0" step="' + (usePct ? 5 : 0.5) + '" value="' + val + '" title="Allocation ' + (usePct ? '(% de la capacité sur la durée)' : '(heures)') + '" onchange="setCharge(' + i.task.id + ',' + tid + ',' + conv + ')"><span class="u">' + (usePct ? '%' : 'h') + '</span><select title="Réaffecter à un autre membre" onchange="if(this.value)reassignCharge(' + i.task.id + ',' + tid + ',parseInt(this.value))"><option value="">⇄</option>' + others.map(m => '<option value="' + m.id + '">→ ' + esc(m.nom) + '</option>').join('') + '</select></div>'
       : '<div class="th">' + i.total + ' h</div>';
     const dates = editable ? '<div class="tkdates"><span class="dl">📅</span><input type="date" value="' + gToInput(i.task.dateDebut) + '" title="Début" onchange="setDates(' + i.task.id + ',this.value,null)"><span>→</span><input type="date" value="' + gToInput(i.task.dateEcheance) + '" title="Échéance" onchange="setDates(' + i.task.id + ',null,this.value)"></div>' : '';
     return '<div class="tk"><div class="tkmain"><span class="pdot" style="background:' + (p ? p.couleur : '#64748b') + '"></span><div class="tinfo"><div class="tt">' + esc(i.task.titre) + '</div><div class="tm">' + sliceTxt + '</div></div>' + right + '</div>' + dates + '</div>';
-  }).join('') : '<div style="color:var(--text-muted);font-size:.82rem">Aucune tâche sur cette période.</div>';
+  }).join('') : '<div style="color:var(--text-muted);font-size:.82rem">Aucune tâche ' + (S.mode === 'realise' ? 'réalisée' : 'planifiée') + ' sur cette période.</div>');
   document.getElementById('pGantt').onclick = () => openInGantt(key);
   document.getElementById('overlay').classList.add('show');
   document.getElementById('panel').classList.add('show');
 }
 function closePanel() { S._cellKey = null; S._resId = null; document.getElementById('pGantt').style.display = ''; document.getElementById('overlay').classList.remove('show'); document.getElementById('panel').classList.remove('show'); }
 function refreshCell() { if (S._cellKey != null) openCell(S._cellKey, S._cellPeriod); }
+function setAllocUnit(u) { S.allocUnit = u; refreshCell(); }
 // Allocation éditable : agit sur la charge PROPRE (Tasks.charges) — recalcule la heatmap.
 async function persistCharges(taskId, arr) {
   const t = S.tasks.find(x => x.id === taskId); if (!t) return;
@@ -809,6 +833,7 @@ function bindToolbar() {
   document.getElementById('selGroup').onchange = (e) => { S.groupBy = e.target.value; render(); };
   document.getElementById('chkDone').onchange = (e) => { S.includeDone = e.target.checked; render(); };
   document.getElementById('chkDerive').onchange = (e) => { S.derive = e.target.checked; render(); };
+  document.getElementById('chkWorkdays').onchange = (e) => { S.workdays = e.target.checked; render(); };
   document.getElementById('btnExport').onclick = () => window.print();
   document.getElementById('pClose').onclick = closePanel;
   document.getElementById('overlay').onclick = closePanel;
@@ -839,8 +864,8 @@ function loadDemo() {
   ];
   S.projects = [{ id: 1, nom: 'Refonte Portail', couleur: '#6366f1' }, { id: 2, nom: 'App Mobile', couleur: '#10b981' }];
   S.tasks = [
-    { id: 1, titre: 'Dev Backend', statut: 'inprogress', projet: 1, dateDebut: g(-3), dateEcheance: g(9), charges: '[{"teamId":1,"heures":24},{"teamId":2,"heures":12}]' },
-    { id: 2, titre: 'Design UI', statut: 'inprogress', projet: 2, dateDebut: g(0), dateEcheance: g(6), charges: '[{"teamId":3,"heures":30}]' },
+    { id: 1, titre: 'Dev Backend', statut: 'inprogress', projet: 1, dateDebut: g(-3), dateEcheance: g(9), charges: '[{"teamId":1,"heures":24},{"teamId":2,"heures":12}]', tempsPasse: 20 },
+    { id: 2, titre: 'Design UI', statut: 'inprogress', projet: 2, dateDebut: g(0), dateEcheance: g(6), charges: '[{"teamId":3,"heures":30}]', tempsPasse: 24 },
     { id: 3, titre: 'Tests QA', statut: 'todo', projet: 1, dateDebut: g(5), dateEcheance: g(13), charges: '[{"teamId":2,"heures":22}]' },
     { id: 4, titre: 'Pilotage / coordination', statut: 'inprogress', projet: 1, dateDebut: g(0), dateEcheance: g(20), charges: '[{"teamId":4,"heures":16}]' },
     { id: 5, titre: 'Documentation', statut: 'done', projet: 2, dateDebut: g(7), dateEcheance: g(11), charges: '[{"teamId":1,"heures":12}]' },

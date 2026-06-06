@@ -281,19 +281,21 @@ const TF = (function () {
 
     // chargeMatrix : generalise chargeByMemberPeriod. Etale les charges (via getCharges,
     // defaut parseCharges) sur la duree, agrege par cle keyFn(t, charge) et periode.
-    function chargeMatrix(tasks, keyFn, granularity, getCharges) {
+    function chargeMatrix(tasks, keyFn, granularity, getCharges, workdays) {
         const g = granularity === 'month' ? 'month' : 'week';
         const out = {};
         for (const t of (tasks || [])) {
             const charges = getCharges ? getCharges(t) : parseCharges(t && t.charges);
             if (!charges.length || t.dateDebut == null || t.dateEcheance == null) continue;
             const d0 = Math.floor((t.dateDebut * 1000) / 86400000), d1 = Math.floor((t.dateEcheance * 1000) / 86400000);
-            const nDays = Math.max(d1 - d0 + 1, 1);
+            const days = [];
+            for (let dd = d0; dd <= d1; dd++) { if (workdays) { const wd = new Date(dd * 86400000).getUTCDay(); if (wd < 1 || wd > 5) continue; } days.push(dd); }
+            if (!days.length) days.push(d0);
             for (const c of charges) {
                 const key = keyFn(t, c); if (key == null) continue;
-                const perDay = c.heures / nDays; if (!perDay) continue;
+                const perDay = c.heures / days.length; if (!perDay) continue;
                 if (!out[key]) out[key] = {};
-                for (let dd = d0; dd <= d1; dd++) { const pk = periodKey(new Date(dd * 86400000), g); out[key][pk] = (out[key][pk] || 0) + perDay; }
+                for (const dd of days) { const pk = periodKey(new Date(dd * 86400000), g); out[key][pk] = (out[key][pk] || 0) + perDay; }
             }
         }
         return out;
