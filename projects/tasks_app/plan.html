@@ -188,6 +188,12 @@ tfoot td.colres{background:var(--surface-2);z-index:2}
 .tl-bar { z-index: 1; }
 .tl-bar.hot { z-index: 3; outline: 2px solid #fff; box-shadow: 0 0 0 2px rgba(123,140,255,.7), 0 2px 7px rgba(0,0,0,.45); }
 .grid td.cell.sel { outline: 2px solid var(--primary, #7b8cff); outline-offset: -2px; border-radius: 3px; }
+.grid tr.grp td { background: rgba(123,140,255,.07); }
+.grid .colres.ghead { font-weight: 700; }
+.grid .colres.ghead .gdot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; margin-right: 9px; flex: none; }
+.grid tr.grp .gval { font-weight: 700; color: var(--text-muted, #cbd5e1); font-variant-numeric: tabular-nums; }
+.grid .colres.sub { padding-left: 30px; }
+.grid .colres.sub .ava { width: 20px; height: 20px; font-size: .56rem; }
 </style>
 <div class="tlpanel" id="tlPanel">
   <div class="tlhead"><div><strong>Timeline par personne</strong><span class="tlrange" id="tlRange"></span></div><button class="x" id="tlClose">×</button></div>
@@ -597,20 +603,40 @@ function tasksForKey(key) {
 function toast(msg) { const el = document.getElementById('toast'); if (!el) return; el.textContent = msg; el.classList.add('show'); clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove('show'), 2800); }
 
 function keyFn() {
-  if (S.groupBy === 'project') return (t) => t.projet ? String(t.projet) : '0';
-  if (S.groupBy === 'role') return (t, c) => { const m = teamById(c.teamId); return (m && m.role) ? m.role : '—'; };
+  // Projet/Rôle = clé COMPOSITE "groupe|personne" → on garde la personne (vue ressource, distincte du Gantt).
+  if (S.groupBy === 'project') return (t, c) => (t.projet ? String(t.projet) : '0') + '|' + c.teamId;
+  if (S.groupBy === 'role') return (t, c) => { const m = teamById(c.teamId); return ((m && m.role) ? m.role : '—') + '|' + c.teamId; };
   return (t, c) => String(c.teamId);
 }
 
 // Lignes (ressources/groupes) avec libellé + capacité nominale + membres (pour la capacité par période)
 function buildRows() {
+  // Projet/Rôle : HIÉRARCHIQUE → ligne d'en-tête (groupe) + une sous-ligne par personne du groupe (capacité-aware).
   if (S.groupBy === 'project') {
-    const ps = {}; for (const t of planTasks()) { const k = t.projet ? String(t.projet) : '0'; if (!ps[k]) { const p = projById(t.projet); ps[k] = { key: k, label: p ? p.nom : 'Sans projet', color: p ? p.couleur : '#64748b', cap: 0, members: [] }; } }
-    return Object.values(ps);
+    const ps = {};
+    for (const t of planTasks()) {
+      const pk = t.projet ? String(t.projet) : '0';
+      if (!ps[pk]) { const p = projById(t.projet); ps[pk] = { label: p ? p.nom : 'Sans projet', color: p ? p.couleur : '#64748b', mem: new Map() }; }
+      for (const c of effCharges(t)) { const m = teamById(c.teamId); if (m) ps[pk].mem.set(m.id, m); }
+    }
+    const out = [];
+    for (const pk of Object.keys(ps)) {
+      const g = ps[pk]; const mems = [...g.mem.values()];
+      out.push({ key: 'h:' + pk, isHeader: true, label: g.label, color: g.color, members: mems, gkeys: mems.map(m => pk + '|' + m.id) });
+      for (const m of mems) out.push({ key: pk + '|' + m.id, isSub: true, teamId: m.id, label: m.nom, color: m.couleur || '#6366f1', cap: capOf(m), members: [m] });
+    }
+    return out;
   }
   if (S.groupBy === 'role') {
-    const rs = {}; for (const m of activeTeam()) { const r = m.role || '—'; if (!rs[r]) rs[r] = { key: r, label: r, color: '#6366f1', cap: 0, members: [] }; rs[r].cap += capOf(m); rs[r].members.push(m); }
-    return Object.values(rs);
+    const rs = {};
+    for (const m of activeTeam()) { const r = m.role || '—'; if (!rs[r]) rs[r] = { label: r, color: '#6366f1', members: [] }; rs[r].members.push(m); }
+    const out = [];
+    for (const r of Object.keys(rs)) {
+      const g = rs[r];
+      out.push({ key: 'h:' + r, isHeader: true, label: r, color: g.color, members: g.members, gkeys: g.members.map(m => r + '|' + m.id) });
+      for (const m of g.members) out.push({ key: r + '|' + m.id, isSub: true, teamId: m.id, label: m.nom, color: m.couleur || '#6366f1', cap: capOf(m), members: [m] });
+    }
+    return out;
   }
   return activeTeam().map(m => ({ key: String(m.id), label: m.nom, color: m.couleur || '#6366f1', cap: capOf(m), members: [m] }));
 }
@@ -675,9 +701,20 @@ function render() {
   h += '<th class="sum">Σ fenêtre</th></tr></thead><tbody>';
   const canEditRes = S.groupBy === 'person';
   for (const row of rows) {
+    if (row.isHeader) {
+      // En-tête de groupe (projet/rôle) : somme des sous-lignes, sans heat (repère de section).
+      const hc = {}; for (const gk of row.gkeys) { const mc = matrix[gk] || {}; for (const p in mc) hc[p] = (hc[p] || 0) + mc[p]; }
+      let wtot = 0;
+      h += '<tr class="grp"><td class="colres ghead"><div class="res"><span class="gdot" style="background:' + row.color + '"></span><span class="nm">' + esc(row.label) + '</span></div></td>';
+      for (let pi = 0; pi < periods.length; pi++) { const p = periods[pi], hr = r1(hc[p] || 0); wtot += hr; h += '<td class="' + (p === nowKey ? 'nowcol' : '') + '">' + (hr > 0 ? '<span class="gval">' + hr + '</span>' : '<span class="dot">·</span>') + '</td>'; }
+      h += '<td class="sum"><div class="sh">' + r1(wtot) + ' h</div></td></tr>';
+      continue;
+    }
     const cells = matrix[row.key] || {};
     const ini = row.label.split(' ').filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase();
-    h += '<tr><td class="colres' + (canEditRes ? ' clk' : '') + '"' + (canEditRes ? ' data-res="' + esc(row.key) + '" title="Capacité & indisponibilités"' : '') + '><div class="res"><span class="ava" style="background:' + row.color + '">' + esc(ini) + '</span><span><span class="nm">' + esc(row.label) + '</span>' + (row.cap > 0 ? ' <span class="cap">(' + Math.round(capPeriod(row.cap)) + 'h)</span>' : '') + '</span></div></td>';
+    const resClk = row.isSub || S.groupBy === 'person';
+    const resId = row.isSub ? row.teamId : row.key;
+    h += '<tr' + (row.isSub ? ' class="subr"' : '') + '><td class="colres' + (row.isSub ? ' sub' : '') + (resClk ? ' clk' : '') + '"' + (resClk ? ' data-res="' + esc(resId) + '" title="Capacité & indisponibilités"' : '') + '><div class="res"><span class="ava" style="background:' + row.color + '">' + esc(ini) + '</span><span><span class="nm">' + esc(row.label) + '</span>' + (row.cap > 0 ? ' <span class="cap">(' + Math.round(capPeriod(row.cap)) + 'h)</span>' : '') + '</span></div></td>';
     let win = 0, peakR = 0;
     for (let pi = 0; pi < periods.length; pi++) {
       const p = periods[pi], hr = r1(cells[p] || 0);
@@ -688,8 +725,8 @@ function render() {
       else { win += hr; if (capP > 0 && hr / capP > peakR) peakR = hr / capP; content = fmtCell(hr, capP); }
       h += '<td class="cell' + (p === nowKey ? ' nowcol' : '') + (redu ? ' redu' : '') + (String(S._cellKey) === String(row.key) && p === S._cellPeriod ? ' sel' : '') + '" data-key="' + esc(row.key) + '" data-period="' + p + '">' + content + '</td>';
     }
-    const peak = (row.members && row.members.length) ? Math.round(peakR * 100) : null;
-    h += '<td class="sum"><div class="sh">' + r1(win) + ' h</div>' + (dispo ? '<div class="sp">dispo</div>' : (peak != null ? '<div class="sp" style="' + (peak > 100 ? 'color:var(--over)' : '') + '">pic ' + peak + '%</div>' : '')) + '</td>';
+    const peak = Math.round(peakR * 100);
+    h += '<td class="sum"><div class="sh">' + r1(win) + ' h</div>' + (dispo ? '<div class="sp">dispo</div>' : '<div class="sp" style="' + (peak > 100 ? 'color:var(--over)' : '') + '">pic ' + peak + '%</div>') + '</td>';
     h += '</tr>';
   }
   h += '</tbody>';
@@ -698,13 +735,15 @@ function render() {
   let grand = 0;
   for (let pi = 0; pi < periods.length; pi++) {
     const p = periods[pi];
+    // charge totale = somme des sous-lignes (les en-têtes n'ont pas de clé matrice) ; capacité = équipe une seule fois (indép. du groupement)
+    let tot = 0; for (const row of rows) if (!row.isHeader) tot += (matrix[row.key] || {})[p] || 0;
+    const capTeam = activeTeam().reduce((s, m) => s + capPeriod(capOf(m)) * (1 - indispoFrac(m, starts[pi])), 0);
     if (dispo) {
-      let freeTot = 0; for (const row of rows) freeTot += Math.max(capForRow(row, starts[pi]) - ((matrix[row.key] || {})[p] || 0), 0); grand += freeTot;
+      const freeTot = Math.max(capTeam - tot, 0); grand += freeTot;
       h += '<td class="' + (p === nowKey ? 'nowcol' : '') + '">' + (freeTot > 0.05 ? r1(freeTot) : '·') + '</td>';
     } else {
-      let tot = 0; for (const row of rows) tot += (matrix[row.key] || {})[p] || 0; grand += tot;
-      const capTot = rows.reduce((s, row) => s + capForRow(row, starts[pi]), 0);
-      const pc = capTot > 0 ? Math.round(tot / capTot * 100) : null;
+      grand += tot;
+      const pc = capTeam > 0 ? Math.round(tot / capTeam * 100) : null;
       h += '<td class="' + (p === nowKey ? 'nowcol' : '') + '">' + (tot > 0 ? r1(tot) + (pc != null ? '<div style="font-size:.66rem;color:var(--text-muted);font-weight:400">' + pc + '%</div>' : '') : '·') + '</td>';
     }
   }
@@ -845,8 +884,8 @@ function openCell(key, period) {
   const rows = buildRows(); const row = rows.find(r => String(r.key) === String(key));
   const items = tasksInCell(key, period);
   const tot = r1(items.reduce((s, i) => s + i.slice, 0));
-  const editable = S.groupBy === 'person' && S.mode === 'prevu';
-  const tid = Number(key);
+  const editable = (S.groupBy === 'person' || (row && row.isSub)) && S.mode === 'prevu';
+  const tid = row && row.teamId != null ? row.teamId : Number(key);
   const others = activeTeam().filter(m => m.id !== tid);
   const _starts = periodStarts(TF.shiftPeriods(new Date(), S.granularity, S.offset), S.granularity, S.horizon);
   const _pi = TF.periodRange(TF.shiftPeriods(new Date(), S.granularity, S.offset), S.granularity, S.horizon).indexOf(period);
@@ -920,12 +959,15 @@ async function setDates(taskId, debut, echeance) {
 }
 function openInGantt(key) {
   // Réutilise le Gantt de la suite : diffuse un filtre (setOptions) + sélectionne les lignes.
-  let filters = null;
-  if (S.groupBy === 'person') filters = { assignee: [Number(key)] };
-  else if (S.groupBy === 'project') filters = { project: Number(key) };
+  const k = String(key); let filters = null, ids = [], who = k;
+  if (k.indexOf('|') >= 0) { // sous-ligne hiérarchique "groupe|personne"
+    const parts = k.split('|'); const pid = Number(parts[1]); who = (teamById(pid) || {}).nom || k;
+    if (S.groupBy === 'project') { filters = { project: Number(parts[0]), assignee: [pid] }; ids = planTasks().filter(t => String(t.projet || '0') === parts[0] && getRefList(t.assignees).includes(pid)).map(t => t.id); }
+    else { filters = { assignee: [pid] }; ids = planTasks().filter(t => getRefList(t.assignees).includes(pid)).map(t => t.id); }
+  } else if (S.groupBy === 'person') { filters = { assignee: [Number(key)] }; ids = tasksForKey(key); who = (teamById(Number(key)) || {}).nom || key; }
+  else if (S.groupBy === 'project') { filters = { project: Number(key) }; ids = tasksForKey(key); who = (projById(Number(key)) || {}).nom || key; }
   try { if (window.grist && grist.widgetApi && grist.widgetApi.setOptions) grist.widgetApi.setOptions({ filters }); } catch (e) {}
-  try { const ids = tasksForKey(key); if (window.grist && grist.setSelectedRows && ids.length) grist.setSelectedRows(ids); } catch (e) {}
-  const who = S.groupBy === 'person' ? ((teamById(Number(key)) || {}).nom || key) : (S.groupBy === 'project' ? ((projById(Number(key)) || {}).nom || key) : key);
+  try { if (window.grist && grist.setSelectedRows && ids.length) grist.setSelectedRows(ids); } catch (e) {}
   toast('Filtre « ' + who + ' » diffusé à la suite — ouvre le Gantt pour le voir.');
 }
 
