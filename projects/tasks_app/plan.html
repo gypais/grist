@@ -194,6 +194,10 @@ tfoot td.colres{background:var(--surface-2);z-index:2}
 .grid tr.grp .gval { font-weight: 700; color: var(--text-muted, #cbd5e1); font-variant-numeric: tabular-nums; }
 .grid .colres.sub { padding-left: 30px; }
 .grid .colres.sub .ava { width: 20px; height: 20px; font-size: .56rem; }
+.tl-sec { font-size: .78rem; font-weight: 800; color: var(--text, #e6e9f2); padding: 11px 14px 3px; display: flex; align-items: center; gap: 8px; border-top: 1px solid var(--border, #2a3550); margin-top: 3px; }
+.tl-sec .gdot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.tl-grp.tl-ind { padding-left: 26px; }
+.tl-row.tl-ind .tl-lbl { padding-left: 42px; }
 </style>
 <div class="tlpanel" id="tlPanel">
   <div class="tlhead"><div><strong>Timeline par personne</strong><span class="tlrange" id="tlRange"></span></div><button class="x" id="tlClose">×</button></div>
@@ -764,14 +768,15 @@ function toggleTimeline() {
 }
 function renderTimeline() {
   const body = document.getElementById('tlBody');
-  if (S.groupBy !== 'person') { document.getElementById('tlRange').textContent = ''; body.innerHTML = '<div class="tl-empty">La timeline par personne est disponible en groupement « Personne ».</div>'; return; }
   const periods = TF.periodRange(TF.shiftPeriods(new Date(), S.granularity, S.offset), S.granularity, S.horizon);
   const starts = periodStarts(TF.shiftPeriods(new Date(), S.granularity, S.offset), S.granularity, S.horizon);
+  const gName = S.groupBy === 'project' ? 'projet' : S.groupBy === 'role' ? 'rôle' : 'personne';
+  const ttl = document.querySelector('#tlPanel .tlhead strong'); if (ttl) ttl.textContent = 'Timeline par ' + gName;
   document.getElementById('tlRange').textContent = '  ' + plabel(periods[0]) + ' → ' + plabel(periods[periods.length - 1]);
   const winStart = starts[0].getTime();
   const winEnd = TF.shiftPeriods(starts[starts.length - 1], S.granularity, 1).getTime();
   const span = (winEnd - winStart) || 1;
-  // FOCUS = cellule ouverte dans la heatmap → lie les deux vues (bande de période + personne ciblée)
+  // FOCUS = cellule ouverte dans la heatmap (clé = personne, ou composite "groupe|personne")
   const fKey = S._cellKey != null ? String(S._cellKey) : null;
   const fIdx = S._cellPeriod ? periods.indexOf(S._cellPeriod) : -1;
   let bandStyle = '', bandS = 0, bandE = 0;
@@ -782,34 +787,40 @@ function renderTimeline() {
     const bw = Math.min(100, (bandE - winStart) / span * 100) - bl;
     bandStyle = 'left:' + bl.toFixed(1) + '%;width:' + bw.toFixed(1) + '%';
   }
+  const kf = keyFn();            // même clé que la heatmap → filtre les tâches de chaque sous-ligne
+  const grouped = S.groupBy !== 'person';
   const tasks = planTasks().filter(t => t.dateDebut != null && t.dateEcheance != null);
-  const rows = buildRows().filter(r => r.members && r.members.length);
+  const rows = buildRows();
   let h = '<div class="tl-axis"><div style="width:160px;flex:none"></div>';
   periods.forEach((p, i) => { h += '<div class="c' + (i === fIdx ? ' on' : '') + '">' + plabel(p) + '</div>'; });
   h += '</div>';
-  let any = false;
+  let any = false, pending = null;
   for (const row of rows) {
-    const isF = fKey != null && String(row.key) === fKey;
+    if (row.isHeader) { pending = row; continue; } // section projet/rôle : affichée si au moins une sous-ligne a des tâches
+    const laneKey = String(row.key);
+    const pid = row.teamId != null ? row.teamId : row.key;
     const mine = tasks
-      .filter(t => effCharges(t).some(c => String(c.teamId) === String(row.key)))
+      .filter(t => effCharges(t).some(c => String(kf(t, c)) === laneKey))
       .filter(t => (t.dateEcheance * 1000) >= winStart && (t.dateDebut * 1000) <= winEnd)
       .sort((a, b) => a.dateDebut - b.dateDebut);
     if (!mine.length) continue;
     any = true;
+    if (pending) { h += '<div class="tl-sec"><span class="gdot" style="background:' + pending.color + '"></span>' + esc(pending.label) + '</div>'; pending = null; }
+    const isF = fKey != null && laneKey === fKey;
     const ini = row.label.split(' ').filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase();
-    h += '<div class="tl-grp' + (isF ? ' tl-focus' : '') + '"' + (isF ? ' id="tlFocus"' : '') + '><span class="tava" style="background:' + row.color + '">' + esc(ini) + '</span>' + esc(row.label) + ' · ' + mine.length + ' tâche' + (mine.length > 1 ? 's' : '') + '</div>';
+    h += '<div class="tl-grp' + (grouped ? ' tl-ind' : '') + (isF ? ' tl-focus' : '') + '"' + (isF ? ' id="tlFocus"' : '') + '><span class="tava" style="background:' + row.color + '">' + esc(ini) + '</span>' + esc(row.label) + ' · ' + mine.length + ' tâche' + (mine.length > 1 ? 's' : '') + '</div>';
     for (const t of mine) {
       const ts = t.dateDebut * 1000, te = t.dateEcheance * 1000;
       const l = Math.max(0, Math.min(1, (ts - winStart) / span)) * 100;
       const rr = Math.max(0, Math.min(1, (te - winStart) / span)) * 100;
       const w = Math.max(rr - l, 1.4);
       const col = (statusCfg.byValue[t.statut] || {}).fillColor || '#64748b';
-      const hrs = (effCharges(t).find(c => String(c.teamId) === String(row.key)) || {}).heures || 0;
-      const hot = isF && fIdx >= 0 && ts < bandE && te > bandS; // tâche qui tombe dans la période focalisée
-      h += '<div class="tl-row' + (isF ? ' tl-focus' : '') + '"><div class="tl-lbl" title="' + esc(t.titre) + '">' + esc(t.titre) + '</div><div class="tl-track">' + (bandStyle ? '<div class="tl-band" style="' + bandStyle + '"></div>' : '') + '<div class="tl-bar' + (hot ? ' hot' : '') + '" style="left:' + l.toFixed(1) + '%;width:' + w.toFixed(1) + '%;background:' + col + '" data-id="' + t.id + '" title="' + esc(t.titre) + ' · ' + r1(hrs) + ' h">' + esc(t.titre) + '</div></div></div>';
+      const hrs = (effCharges(t).find(c => String(c.teamId) === String(pid)) || {}).heures || 0;
+      const hot = isF && fIdx >= 0 && ts < bandE && te > bandS; // tâche dans la période focalisée
+      h += '<div class="tl-row' + (grouped ? ' tl-ind' : '') + (isF ? ' tl-focus' : '') + '"><div class="tl-lbl" title="' + esc(t.titre) + '">' + esc(t.titre) + '</div><div class="tl-track">' + (bandStyle ? '<div class="tl-band" style="' + bandStyle + '"></div>' : '') + '<div class="tl-bar' + (hot ? ' hot' : '') + '" style="left:' + l.toFixed(1) + '%;width:' + w.toFixed(1) + '%;background:' + col + '" data-id="' + t.id + '" title="' + esc(t.titre) + ' · ' + r1(hrs) + ' h">' + esc(t.titre) + '</div></div></div>';
     }
   }
-  if (!any) h += '<div class="tl-empty">Aucune tâche datée pour les personnes affichées sur cette fenêtre.</div>';
+  if (!any) h += '<div class="tl-empty">Aucune tâche datée sur cette fenêtre.</div>';
   body.innerHTML = h;
   body.querySelectorAll('.tl-bar').forEach(b => b.addEventListener('click', () => { const id = Number(b.dataset.id); try { if (!S.demo && grist.setSelectedRows) grist.setSelectedRows([id]); } catch (e) {} }));
   const fg = document.getElementById('tlFocus'); if (fg) fg.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
