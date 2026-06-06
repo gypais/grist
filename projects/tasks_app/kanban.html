@@ -311,10 +311,9 @@
             .task-card { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
             @page { size: landscape; margin: 1cm; }
         }
-        /* Responsive pour header unifié */
-        @media (max-width: 1100px) {
-            .header { flex-wrap: wrap; }
-            .header-right { order: 3; width: 100%; justify-content: flex-end; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
+        /* Responsive — palier intermédiaire : barre d'outils sur 2 lignes propres (avant le mobile) */
+        @media (max-width: 980px) {
+            .hdr-right { width: 100%; margin-left: 0; margin-top: 6px; padding-top: 8px; border-top: 1px solid var(--border); justify-content: flex-end; }
         }
 
         /* ── PANEL NOTION-LIKE ──────────────────────────────────────────────── */
@@ -511,8 +510,8 @@
         .prop-value .dates-inline { padding: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
         .panel-pill-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 6px; vertical-align: middle; }
 
-        /* ═════ Responsive mobile (widget embarqué étroit) ═════ */
-        @media (max-width: 760px) {
+        /* ═════ Responsive mobile (widget embarqué très étroit) ═════ */
+        @media (max-width: 560px) {
             .header { padding: 8px 12px; }
             .header h1 { font-size: 1.05rem; }
             .hdr-left, .hdr-right { width: 100%; }
@@ -2099,13 +2098,15 @@
         // Repli auto vers données d'exemple si Grist ne renvoie rien sous 2.8s (aperçu / hors-ligne)
         renderSkeleton();  // 06 · squelette pendant le chargement (évite l'écran vide)
         setTimeout(function(){ try { if ((typeof tasks==='undefined' || !tasks || !tasks.length) && typeof useDemoMode==='function') useDemoMode(); } catch(e){ console.log(e); } }, 2800);
+        // Nav inter-vues (barre du bas) : uniquement en mode "suite/racine" (?nav dans l'URL), pas en widget indépendant.
+        try { if (new URLSearchParams(location.search).has('nav')) document.body.classList.add('suite-nav'); } catch (e) {}
         initGrist();
     </script>
 <style>
 /* 12 · Barre d'onglets mobile commune + bouton central */
 .mobile-tabbar { display: none; }
-@media (max-width: 760px) {
-  .mobile-tabbar { display: flex; position: fixed; bottom: 0; left: 0; right: 0; height: 62px; background: var(--card-bg); border-top: 1px solid var(--border); z-index: 60; align-items: center; justify-content: space-around; box-shadow: 0 -4px 22px rgba(0,0,0,.10); padding-bottom: env(safe-area-inset-bottom, 0); }
+@media (max-width: 560px) {
+  body.suite-nav .mobile-tabbar { display: flex; position: fixed; bottom: 0; left: 0; right: 0; height: 62px; background: var(--card-bg); border-top: 1px solid var(--border); z-index: 60; align-items: center; justify-content: space-around; box-shadow: 0 -4px 22px rgba(0,0,0,.10); padding-bottom: env(safe-area-inset-bottom, 0); }
   .mt-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 0.6rem; color: var(--text-muted); text-decoration: none; font-weight: 600; padding: 7px 0; background: none; border: none; cursor: pointer; }
   .mt-item svg { width: 21px; height: 21px; }
   .mt-item.active { color: var(--primary); }
