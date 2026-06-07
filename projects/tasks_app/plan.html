@@ -171,7 +171,6 @@ tfoot td.colres{background:var(--surface-2);z-index:2}
     <button class="x" id="pClose">×</button>
   </div>
   <div class="pb" id="pBody"></div>
-  <div class="pf"><button class="btn" id="pGantt" style="width:100%">↗ Ouvrir dans le Gantt</button></div>
 </div>
 <div id="toast" class="toast"></div>
 <style>
@@ -959,7 +958,7 @@ function openTaskPop(taskId, anchor, lane, period) {
   const t = S.tasks.find(x => x.id === taskId); if (!t) return;
   const pop = document.getElementById('tlPop');
   const canAdj = S.mode === 'prevu' && lane != null;
-  pop.innerHTML = taskCardHtml(t) + '<div class="tpc-foot">' + (canAdj ? '<button class="tpc-adj">Ajuster ▸</button>' : '') + '<button class="tpc-gantt">↗ Gantt</button></div>';
+  pop.innerHTML = taskCardHtml(t) + (canAdj ? '<div class="tpc-foot"><button class="tpc-adj">Ajuster ▸</button></div>' : '');
   pop.style.display = 'block';
   const r = anchor.getBoundingClientRect();
   const pw = pop.offsetWidth, ph = pop.offsetHeight;
@@ -968,7 +967,6 @@ function openTaskPop(taskId, anchor, lane, period) {
   top = Math.max(8, Math.min(top, window.innerHeight - ph - 8)); // jamais coupé par le bas
   pop.style.left = left + 'px'; pop.style.top = top + 'px';
   const adj = pop.querySelector('.tpc-adj'); if (adj) adj.onclick = () => { closeTaskPop(); openCell(lane, period); };
-  pop.querySelector('.tpc-gantt').onclick = () => { try { if (!S.demo && grist.setSelectedRows) grist.setSelectedRows([taskId]); } catch (e) {} closeTaskPop(); };
 }
 function closeTaskPop() { const p = document.getElementById('tlPop'); if (p) p.style.display = 'none'; }
 document.addEventListener('click', (e) => { const p = document.getElementById('tlPop'); if (p && p.style.display !== 'none' && !p.contains(e.target) && !e.target.closest('.tl-bar')) closeTaskPop(); });
@@ -1052,7 +1050,6 @@ function memberAvail(period) {
 }
 function openCell(key, period) {
   S._cellKey = key; S._cellPeriod = period; S._resId = null;
-  document.getElementById('pGantt').style.display = '';
   const rows = buildRows(); const row = rows.find(r => String(r.key) === String(key));
   const items = tasksInCell(key, period);
   const tot = r1(items.reduce((s, i) => s + i.slice, 0));
@@ -1099,7 +1096,6 @@ function openCell(key, period) {
     const dates = editable ? '<div class="tkdates"><span class="dl">📅 Dates</span><input type="date" name="dateDebut" value="' + gToInput(i.task.dateDebut) + '" title="Début" onchange="setDates(' + i.task.id + ',this.value,null)"><span>→</span><input type="date" name="dateEcheance" value="' + gToInput(i.task.dateEcheance) + '" title="Échéance" onchange="setDates(' + i.task.id + ',null,this.value)"></div>' : '';
     return '<div class="tk"><div class="tkmain"><span class="pdot" style="background:' + (p ? p.couleur : '#64748b') + '"></span><div class="tinfo"><div class="tt">' + esc(i.task.titre) + '</div><div class="tm">' + sliceTxt + '</div></div>' + right + '</div>' + dates + '</div>';
   }).join('') : '<div style="color:var(--text-muted);font-size:.82rem">Aucune tâche ' + (S.mode === 'realise' ? 'réalisée' : 'planifiée') + ' sur cette période.</div>');
-  document.getElementById('pGantt').onclick = () => openInGantt(key);
   document.getElementById('overlay').classList.add('show');
   document.getElementById('panel').classList.add('show'); document.body.classList.add('panel-open');
   // lien heatmap → cellule surlignée + timeline focalisée
@@ -1107,7 +1103,7 @@ function openCell(key, period) {
   const _td = document.querySelector('#gridwrap td.cell[data-key="' + key + '"][data-period="' + period + '"]'); if (_td) _td.classList.add('sel');
   if (S.timeline) renderTimeline();
 }
-function closePanel() { S._cellKey = null; S._resId = null; document.getElementById('pGantt').style.display = ''; document.getElementById('overlay').classList.remove('show'); document.getElementById('panel').classList.remove('show'); document.body.classList.remove('panel-open'); document.querySelectorAll('#gridwrap td.cell.sel').forEach(td => td.classList.remove('sel')); if (S.timeline) renderTimeline(); }
+function closePanel() { S._cellKey = null; S._resId = null; document.getElementById('overlay').classList.remove('show'); document.getElementById('panel').classList.remove('show'); document.body.classList.remove('panel-open'); document.querySelectorAll('#gridwrap td.cell.sel').forEach(td => td.classList.remove('sel')); if (S.timeline) renderTimeline(); }
 function refreshCell() { if (S._cellKey != null) openCell(S._cellKey, S._cellPeriod); }
 function setAllocUnit(u) { S.allocUnit = u; refreshCell(); }
 // Allocation éditable : agit sur Tasks.charges + COHÉRENCE assignés (option A) — recalcule la heatmap.
@@ -1148,20 +1144,6 @@ async function setDates(taskId, debut, echeance) {
   if (!S.demo) { try { await grist.docApi.applyUserActions([['UpdateRecord', 'Tasks', taskId, upd]]); } catch (e) {} }
   render(); refreshCell();
 }
-function openInGantt(key) {
-  // Réutilise le Gantt de la suite : diffuse un filtre (setOptions) + sélectionne les lignes.
-  const k = String(key); let filters = null, ids = [], who = k;
-  if (k.indexOf('|') >= 0) { // sous-ligne hiérarchique "groupe|personne"
-    const parts = k.split('|'); const pid = Number(parts[1]); who = (teamById(pid) || {}).nom || k;
-    if (S.groupBy === 'project') { filters = { project: Number(parts[0]), assignee: [pid] }; ids = planTasks().filter(t => String(t.projet || '0') === parts[0] && getRefList(t.assignees).includes(pid)).map(t => t.id); }
-    else { filters = { assignee: [pid] }; ids = planTasks().filter(t => getRefList(t.assignees).includes(pid)).map(t => t.id); }
-  } else if (S.groupBy === 'person') { filters = { assignee: [Number(key)] }; ids = tasksForKey(key); who = (teamById(Number(key)) || {}).nom || key; }
-  else if (S.groupBy === 'project') { filters = { project: Number(key) }; ids = tasksForKey(key); who = (projById(Number(key)) || {}).nom || key; }
-  try { if (window.grist && grist.widgetApi && grist.widgetApi.setOptions) grist.widgetApi.setOptions({ filters }); } catch (e) {}
-  try { if (window.grist && grist.setSelectedRows && ids.length) grist.setSelectedRows(ids); } catch (e) {}
-  toast('Filtre « ' + who + ' » diffusé à la suite — ouvre le Gantt pour le voir.');
-}
-
 // 2.1 — panneau ressource : capacité hebdo + indisponibilités (Team.capaciteHebdo / Team.indispos).
 function openResource(key) {
   const m = teamById(Number(key)); if (!m) return;
@@ -1174,7 +1156,6 @@ function openResource(key) {
   html += ind.length ? ind.map((iv, idx) => '<div class="indispo"><span class="il">' + esc(iv.label || 'Indispo') + '</span><span class="id">' + esc(iv.start) + ' → ' + esc(iv.end) + '</span><button class="ix" title="Retirer" onclick="removeIndispo(' + m.id + ',' + idx + ')">×</button></div>').join('') : '<div style="color:var(--text-muted);font-size:.8rem;margin:6px 0">Aucune indisponibilité.</div>';
   html += '<div class="indispo-add"><input type="text" id="indLabel" placeholder="Libellé (ex. Congés)"><div class="dd"><input type="date" id="indStart"><span>→</span><input type="date" id="indEnd"></div><button class="btn" onclick="addIndispo(' + m.id + ')">+ Ajouter</button></div>';
   document.getElementById('pBody').innerHTML = html;
-  document.getElementById('pGantt').style.display = 'none';
   document.getElementById('overlay').classList.add('show');
   document.getElementById('panel').classList.add('show'); document.body.classList.add('panel-open');
 }
