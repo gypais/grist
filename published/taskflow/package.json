@@ -1,6 +1,6 @@
 {
   "name": "taskflow",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Suite de widgets de gestion de projet pour Grist",
   "authors": [
     {
@@ -9,6 +9,13 @@
     }
   ],
   "grist": [
+    {
+      "widgetId": "taskflow",
+      "name": "TaskFlow — Suite complète",
+      "url": "",
+      "accessLevel": "full",
+      "description": "Suite tout-en-un : Dashboard, Kanban, Gantt, Calendar, Plan, Whiteboard dans un seul widget"
+    },
     {
       "widgetId": "taskflow-kanban",
       "name": "TaskFlow Kanban",
@@ -36,6 +43,13 @@
       "url": "dashboard/",
       "accessLevel": "full",
       "description": "Tableau de bord avec KPIs et statistiques des tâches"
+    },
+    {
+      "widgetId": "taskflow-plan",
+      "name": "TaskFlow Plan",
+      "url": "plan/",
+      "accessLevel": "full",
+      "description": "Plan de charge : capacité/charge par personne, prévu/réalisé/reste/dispo, disponibilités"
     }
   ]
 }

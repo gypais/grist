@@ -36,9 +36,16 @@
         .btn.primary:hover { background: var(--primary-dark); }
         .btn.active { background: var(--primary-light); color: var(--primary); border-color: var(--primary); }
 
-        /* ── Filter chips ── */
-        .filter-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 7px; background: var(--primary-light); color: var(--primary); border-radius: 10px; font-size: 0.71rem; font-weight: 500; }
-        .filter-chip button { background: none; border: none; color: var(--primary); cursor: pointer; font-size: 0.78rem; padding: 0; line-height: 1; }
+        /* ── Filter chips (pill harmonisé) ── */
+        .filter-chips { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; padding: 9px 16px; background: var(--card-bg); border-bottom: 1px solid var(--border); }
+        .filter-chip { display: inline-flex; align-items: center; gap: 6px; height: 25px; padding: 0 5px 0 10px; background: var(--p-50, var(--primary-light)); color: var(--primary); border: 1px solid var(--primary); border-radius: 999px; font-size: 0.71rem; font-weight: 600; white-space: nowrap; }
+        .filter-chip .fc-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+        .filter-chip button { width: 16px; height: 16px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: none; border: none; color: inherit; cursor: pointer; font-size: 0.85rem; line-height: 1; opacity: .65; padding: 0; }
+        .filter-chip button:hover { opacity: 1; background: rgba(62,93,231,.18); }
+        .hf-label { font-size: 0.71rem; color: var(--text-light); font-weight: 600; margin-right: 2px; }
+        .hf-clear { font-size: 0.71rem; color: var(--text-muted); cursor: pointer; padding: 4px 8px; border-radius: 6px; font-weight: 550; }
+        .hf-clear:hover { background: var(--bg); color: var(--text); }
+        .filter-count { background: var(--primary); color: #fff; border-radius: 999px; min-width: 16px; height: 16px; padding: 0 4px; font-size: 0.6rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; margin-left: 4px; }
 
         /* ── Filter panel ── */
         .filter-panel { background: var(--card-bg); border-bottom: 1px solid var(--border); padding: 10px 16px; display: none; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
@@ -62,6 +69,9 @@
         .dashboard-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; align-items: start; }
         @media (max-width: 1200px) { .dashboard-grid { grid-template-columns: repeat(2, 1fr); } }
         @media (max-width: 768px)  { .dashboard-grid { grid-template-columns: 1fr; } }
+        /* 06 · Chargement (skeleton) */
+        .tf-sk { background: linear-gradient(90deg, var(--bg) 25%, var(--border) 37%, var(--bg) 63%); background-size: 400% 100%; border-radius: 5px; animation: tfsk 1.4s ease infinite; }
+        @keyframes tfsk { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
 
         /* ── Component ── */
         .component { background: var(--card-bg); border-radius: 12px; border: 1px solid var(--border); overflow: hidden; }
@@ -104,6 +114,49 @@
         .kpi-done      .kpi-value, .kpi-done_week .kpi-value, .kpi-rate .kpi-value { color: var(--success); }
         .kpi-late      .kpi-value { color: var(--danger); }
         .kpi-late-border { border-color: var(--danger) !important; background: var(--danger-light) !important; }
+
+        /* ═════ TaskFlow v2 — couche d'harmonisation (visuel uniquement, JS intact) ═════ */
+        body { -webkit-font-smoothing: antialiased; font-feature-settings: "cv05" 1, "ss01" 1; }
+        .btn { border-radius: 8px; font-weight: 550; }
+        .btn.primary { box-shadow: 0 1px 2px rgba(62,93,231,.35), 0 4px 12px -3px rgba(62,93,231,.45); }
+        .kpi-value { letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+
+        /* ═════ Barre d'outils + responsive mobile ═════ */
+        .header { flex-wrap: wrap; gap: 8px 10px; align-items: center; }
+        .btn { white-space: nowrap; }
+        @media (max-width: 560px) {
+            .header { padding: 8px 12px; gap: 6px; }
+            .btn { min-height: 38px; }
+            .filter-panel, .edit-panel { width: 100% !important; }
+        }
+        :root {
+            --primary:#3e5de7; --primary-dark:#2742b8; --primary-light:#e7ecfe;
+            --success:#15a06b; --success-light:#e4f6ee;
+            --warning:#f0982d; --warning-light:#fdf1e1;
+            --danger:#e5484d; --danger-light:#fdeced;
+            --info:#4c7ef3; --info-light:#e9f0fe;
+            --bg:#f5f7fb; --card-bg:#ffffff;
+            --text:#1f2738; --text-muted:#5a6679; --text-light:#8a97ab;
+            --border:#e7ebf2; --border-dark:#d3dae5;
+            --shadow:0 1px 2px rgba(16,24,40,0.05),0 1px 3px rgba(16,24,40,0.04);
+            --shadow-lg:0 18px 48px -12px rgba(16,24,40,0.22),0 6px 16px -8px rgba(16,24,40,0.12);
+            --p-50:#eef2ff; --p-100:#dfe5ff; --surface-2:#eef2f7;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --primary:#7b8cff; --primary-dark:#6878f5; --primary-light:#22306e;
+                --success:#3fcf8e; --success-light:#0f2e22;
+                --warning:#f5b454; --warning-light:#3a2c14;
+                --danger:#ff6168; --danger-light:#3a1c22;
+                --info:#7b9cff; --info-light:#16264a;
+                --bg:#0f1626; --card-bg:#18223a;
+                --text:#dde3ef; --text-muted:#9aa6bd; --text-light:#6c788f;
+                --border:#283145; --border-dark:#3a455c;
+                --shadow:0 1px 2px rgba(0,0,0,0.4); --shadow-lg:0 24px 60px -16px rgba(0,0,0,0.7);
+                --p-50:#1a2150; --p-100:#22306e; --surface-2:#161f33;
+            }
+            .demo-badge { color: #1f2738; }
+        }
 
         /* ── Donut ── */
         .donut-wrap { display: flex; align-items: center; justify-content: center; gap: 18px; }
@@ -259,12 +312,14 @@
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
             Dashboard
         </h1>
-        <div class="header-filters" id="headerFilters"></div>
         <div class="header-right">
             <span class="last-update" id="lastUpdate">--</span>
             <button class="btn" id="filterToggleBtn" onclick="toggleFilterPanel()">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
-                Filtres
+                Filtres<span class="filter-count" id="filterCount" style="display:none">0</span>
+            </button>
+            <button class="btn" id="btnLeavesOnly" onclick="toggleLeavesOnly()" title="Compter uniquement les feuilles (éviter double-compte parent+enfants)">
+                ↳ Feuilles
             </button>
             <button class="btn" id="editToggleBtn" onclick="toggleEditMode()">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
@@ -292,6 +347,8 @@
             </button>
         </div>
     </div>
+
+    <div class="filter-chips" id="headerFilters" style="display:none"></div>
 
     <!-- ── Filter panel ── -->
     <div class="filter-panel" id="filterPanel"></div>
@@ -321,6 +378,8 @@ const CATALOG = {
     bars:     { label: 'Barres',     icon: '▦', defaultSpan: 2 },
     list:     { label: 'Liste',      icon: '☰', defaultSpan: 4 },
     workload: { label: 'Équipe',     icon: '◑', defaultSpan: 2 },
+    charge:   { label: 'Charge (h)',  icon: '◔', defaultSpan: 2 },
+    plancharge: { label: 'Plan de charge', icon: '▦', defaultSpan: 4 },
     upcoming: { label: 'Échéances',  icon: '◷', defaultSpan: 2 },
     projects: { label: 'Projets',    icon: '◧', defaultSpan: 2 },
     velocity: { label: 'Vélocité',   icon: '↗', defaultSpan: 4 },
@@ -337,6 +396,13 @@ const CONFIG_FIELDS = {
     upcoming: [{ key:'horizon', label:'Horizon (j)', options:[['7','7j'],['14','14j'],['30','30j']] }],
     velocity: [{ key:'weeks',   label:'Semaines',     options:[['4','4'],['6','6'],['8','8']] }],
     workload: [],
+    charge: [],
+    plancharge: [
+        { key:'granularity', label:'Granularité', options:[['week','Semaine'],['month','Mois']] },
+        { key:'horizon',     label:'Périodes',    options:[['6','6'],['8','8'],['12','12']] },
+        { key:'capacite',    label:'Capacité/sem', options:[['35','35h'],['39','39h'],['40','40h']] },
+        { key:'includeDone', label:'Inclure terminé', options:[['non','Non'],['oui','Oui']] },
+    ],
     projects: [],
 };
 
@@ -363,18 +429,376 @@ const DEFAULT_LAYOUT = [
 // ═══════════════════════════════════════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
+// MODULE COMMUN TASKFLOW (genere — voir projects/tasks_app/core/taskflow-core.js)
+// <taskflow-core> -- GENERE par scripts/build-taskflow.js, NE PAS EDITER ICI
+/* ============================================================================
+ * taskflow-core.js — Module commun aux widgets TaskFlow
+ * ----------------------------------------------------------------------------
+ * SOURCE UNIQUE. Inline dans chaque widget par scripts/build-taskflow.js entre
+ * les marqueurs de generation prevus a cet effet.
+ * NE PAS editer la copie inlinee dans les .html : editer CE fichier puis lancer
+ *   npm run build:taskflow
+ *
+ * Expose un objet `TF` (namespace) pour ne jamais entrer en collision avec les
+ * helpers locaux existants des widgets. Toutes les fonctions qui ecrivent dans
+ * Grist sont DEFENSIVES : en cas d'echec elles n'interrompent jamais le widget
+ * (au pire, comportement actuel inchange).
+ * ========================================================================== */
+const TF = (function () {
+    'use strict';
+
+    /* ----- Statuts ---------------------------------------------------------
+     * Convention : l'ORDRE fait foi. Le DERNIER statut de la liste est l'etat
+     * terminal ("termine") utilise par la logique de completion des widgets.
+     * Les statuts reels proviennent de la colonne Choice `statut` (editable par
+     * l'utilisateur dans Grist). DEFAULT_STATUSES n'est qu'un repli.
+     * --------------------------------------------------------------------- */
+    const DEFAULT_STATUSES = [
+        { value: 'todo',       label: 'À faire',  fillColor: '#94a3b8', textColor: '#ffffff' },
+        { value: 'inprogress', label: 'En cours', fillColor: '#f59e0b', textColor: '#ffffff' },
+        { value: 'review',     label: 'En revue', fillColor: '#3b82f6', textColor: '#ffffff' },
+        { value: 'done',       label: 'Terminé',  fillColor: '#10b981', textColor: '#ffffff' }
+    ];
+    // Repli libelle + couleur pour les CODES par defaut. Permet d'afficher un libelle
+    // FR (et la bonne couleur) meme quand la colonne Choice stocke le code brut
+    // (todo/inprogress/...). Une valeur renommee par l'utilisateur garde SON libelle.
+    const DEFAULTS_BY_VALUE = {};
+    for (var _i = 0; _i < DEFAULT_STATUSES.length; _i++) DEFAULTS_BY_VALUE[DEFAULT_STATUSES[_i].value] = DEFAULT_STATUSES[_i];
+
+    // Convertit un tableau Grist colonnaire en tableau d'objets lignes.
+    function columnarToRows(data) {
+        if (!data || Array.isArray(data)) return data || [];
+        const cols = Object.keys(data);
+        if (!cols.length) return [];
+        const n = (data[cols[0]] && data[cols[0]].length) || 0;
+        const rows = [];
+        for (let i = 0; i < n; i++) {
+            const rec = {};
+            for (const k of cols) rec[k] = data[k][i];
+            rows.push(rec);
+        }
+        return rows;
+    }
+
+    // Resout le rowId d'une table depuis son tableId via _grist_Tables.
+    async function tableRowId(grist, tableId) {
+        const meta = columnarToRows(await grist.docApi.fetchTable('_grist_Tables'));
+        const row = meta.find(r => r.tableId === tableId);
+        return row ? row.id : null;
+    }
+
+    // Construit une config de statuts normalisee depuis une liste brute.
+    function buildStatusConfig(list, source) {
+        const clean = (list || []).filter(s => s && s.value != null).map(s => {
+            const v = String(s.value);
+            const d = DEFAULTS_BY_VALUE[v];
+            const hasExplicitLabel = s.label != null && s.label !== '' && String(s.label) !== v;
+            return {
+                value: v,
+                label: hasExplicitLabel ? String(s.label) : (d ? d.label : v),
+                fillColor: s.fillColor || (d ? d.fillColor : '#94a3b8'),
+                textColor: s.textColor || (d ? d.textColor : '#ffffff')
+            };
+        });
+        const final = clean.length ? clean : DEFAULT_STATUSES.slice();
+        const byValue = {};
+        for (const s of final) byValue[s.value] = s;
+        return {
+            list: final,
+            byValue,
+            values: final.map(s => s.value),
+            terminalValue: final[final.length - 1].value, // convention "dernier = termine"
+            firstValue: final[0].value,
+            source: clean.length ? source : 'default'
+        };
+    }
+
+    /* Lit les statuts (libelles + couleurs + ordre) depuis la colonne Choice
+     * indiquee, via les metadonnees Grist. Repli en cascade :
+     *   1. options de la colonne Choice (cas ideal)
+     *   2. valeurs distinctes presentes dans les donnees (colonne Text)
+     *   3. DEFAULT_STATUSES
+     * Ne jette jamais : retourne toujours une config exploitable.
+     */
+    async function loadStatusConfig(grist, table, column, distinctFallback) {
+        try {
+            const tid = await tableRowId(grist, table);
+            if (tid != null) {
+                const cols = columnarToRows(await grist.docApi.fetchTable('_grist_Tables_column'));
+                const col = cols.find(c => c.parentId === tid && c.colId === column);
+                if (col && col.widgetOptions) {
+                    let opt = {};
+                    try { opt = JSON.parse(col.widgetOptions) || {}; } catch (e) { opt = {}; }
+                    const choices = Array.isArray(opt.choices) ? opt.choices : [];
+                    const co = opt.choiceOptions || {};
+                    if (choices.length) {
+                        return buildStatusConfig(choices.map(ch => ({
+                            value: ch,
+                            label: ch,
+                            fillColor: co[ch] && co[ch].fillColor,
+                            textColor: co[ch] && co[ch].textColor
+                        })), 'choice');
+                    }
+                }
+            }
+        } catch (e) { /* repli silencieux */ }
+
+        if (Array.isArray(distinctFallback) && distinctFallback.length) {
+            const seen = [];
+            for (const v of distinctFallback) { if (v != null && v !== '' && seen.indexOf(v) === -1) seen.push(v); }
+            if (seen.length) return buildStatusConfig(seen.map(v => ({ value: v, label: v })), 'data');
+        }
+        return buildStatusConfig(DEFAULT_STATUSES.slice(), 'default');
+    }
+
+    function getStatus(cfg, value) {
+        if (cfg && cfg.byValue && cfg.byValue[value]) return cfg.byValue[value];
+        return { value: value, label: value || '', fillColor: '#94a3b8', textColor: '#ffffff' };
+    }
+    function isTerminal(cfg, value) { return !!cfg && value === cfg.terminalValue; }
+
+    /* Seme les options (choix + couleurs) sur une colonne Choice si elle n'en a
+     * pas encore. Defensif. A appeler depuis ensureSchema apres creation.
+     */
+    async function seedStatusChoices(grist, table, column, statuses) {
+        try {
+            const tid = await tableRowId(grist, table);
+            if (tid == null) return;
+            const cols = columnarToRows(await grist.docApi.fetchTable('_grist_Tables_column'));
+            const col = cols.find(c => c.parentId === tid && c.colId === column);
+            if (!col) return;
+            let opt = {};
+            try { opt = JSON.parse(col.widgetOptions || '{}') || {}; } catch (e) { opt = {}; }
+            if (Array.isArray(opt.choices) && opt.choices.length) return; // deja configure : on respecte
+            const list = statuses && statuses.length ? statuses : DEFAULT_STATUSES;
+            const choiceOptions = {};
+            for (const s of list) choiceOptions[s.value] = { fillColor: s.fillColor, textColor: s.textColor };
+            const widgetOptions = JSON.stringify({ choices: list.map(s => s.value), choiceOptions: choiceOptions });
+            await grist.docApi.applyUserActions([['ModifyColumn', table, column, { widgetOptions: widgetOptions }]]);
+        } catch (e) { console.warn('TF.seedStatusChoices:', e && e.message); }
+    }
+
+    /* ----- #2 : colonnes d'affichage des Ref (noms au lieu des IDs) ---------
+     * Pose le visibleCol + la display formula sur des colonnes Ref pour que les
+     * VUES NATIVES Grist affichent un libelle plutot que l'ID de ligne.
+     * specs : [{ table:'Tasks', column:'projet', visibleColId:'nom' }, ...]
+     * DEFENSIF : si Grist refuse une action, on log et on continue ; au pire
+     * l'affichage reste en IDs (comportement actuel), jamais de casse.
+     * --------------------------------------------------------------------- */
+    async function setRefDisplayColumns(grist, specs) {
+        if (!Array.isArray(specs) || !specs.length) return;
+        try {
+            const tables = columnarToRows(await grist.docApi.fetchTable('_grist_Tables'));
+            const cols = columnarToRows(await grist.docApi.fetchTable('_grist_Tables_column'));
+            const tidOf = (tableId) => { const r = tables.find(t => t.tableId === tableId); return r ? r.id : null; };
+            const colOf = (tableRow, colId) => cols.find(c => c.parentId === tableRow && c.colId === colId);
+
+            const actions = [];
+            for (const s of specs) {
+                const srcTid = tidOf(s.table);
+                if (srcTid == null) continue;
+                const refCol = colOf(srcTid, s.column);
+                if (!refCol) continue;
+                // Table cible deduite du type "Ref:Target" / "RefList:Target".
+                const m = /^(?:Ref|RefList):(.+)$/.exec(refCol.type || '');
+                if (!m) continue;
+                const targetTid = tidOf(m[1]);
+                if (targetTid == null) continue;
+                const visCol = colOf(targetTid, s.visibleColId);
+                if (!visCol) continue;
+                // Eviter de re-poser si deja correct.
+                if (refCol.visibleCol === visCol.id) continue;
+                actions.push(['SetDisplayFormula', s.table, null, refCol.id, '$' + s.column + '.' + s.visibleColId]);
+                actions.push(['UpdateRecord', '_grist_Tables_column', refCol.id, { visibleCol: visCol.id }]);
+            }
+            if (actions.length) await grist.docApi.applyUserActions(actions);
+        } catch (e) { console.warn('TF.setRefDisplayColumns:', e && e.message); }
+    }
+
+    /* ----- #3 : plan de charge (heures par personne) ------------------------
+     * Stockage : colonne Text `charges` sur Tasks, JSON [{teamId, heures}].
+     * Parse defensif identique au pattern subtasks.
+     * --------------------------------------------------------------------- */
+    function parseCharges(v) {
+        try {
+            const a = JSON.parse(v || '[]');
+            if (!Array.isArray(a)) return [];
+            return a.filter(x => x && x.teamId != null)
+                    .map(x => ({ teamId: Number(x.teamId), heures: Number(x.heures) || 0 }))
+                    .filter(x => !isNaN(x.teamId));
+        } catch (e) { return []; }
+    }
+    function chargesToJson(arr) {
+        return JSON.stringify((arr || [])
+            .filter(x => x && x.teamId != null)
+            .map(x => ({ teamId: Number(x.teamId), heures: Number(x.heures) || 0 }))
+            .filter(x => !isNaN(x.teamId)));
+    }
+    // Heures totales d'une tache (somme des charges par personne).
+    function chargeTotal(charges) { return parseCharges(typeof charges === 'string' ? charges : JSON.stringify(charges || [])).reduce((s, c) => s + c.heures, 0); }
+    // Agrege la charge par membre sur une liste de taches (chaque tache expose .charges).
+    function chargeByMember(tasks) {
+        const by = {};
+        for (const t of (tasks || [])) {
+            for (const c of parseCharges(t && t.charges)) {
+                by[c.teamId] = (by[c.teamId] || 0) + c.heures;
+            }
+        }
+        return by;
+    }
+
+    // Cle de periode : semaine ISO 'YYYY-Www' ou mois 'YYYY-MM'.
+    function periodKey(date, granularity) {
+        if (granularity === 'month') {
+            return date.getUTCFullYear() + '-' + String(date.getUTCMonth() + 1).padStart(2, '0');
+        }
+        const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+        const day = d.getUTCDay() || 7;
+        d.setUTCDate(d.getUTCDate() + 4 - day);
+        const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+        const week = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+        return d.getUTCFullYear() + '-W' + String(week).padStart(2, '0');
+    }
+
+    // #3 plan de charge temporel : etale les charges PROPRES de chaque tache sur sa
+    // duree (jours calendaires), agrege par personne et par periode.
+    // dateDebut/dateEcheance = timestamps Unix SECONDES (Grist). Tache sans dates ou
+    // sans charge = ignoree. Retourne { teamId: { periodKey: heures } }.
+    function chargeByMemberPeriod(tasks, granularity) {
+        const g = granularity === 'month' ? 'month' : 'week';
+        const out = {};
+        for (const t of (tasks || [])) {
+            const charges = parseCharges(t && t.charges);
+            if (!charges.length) continue;
+            const s = t.dateDebut, e = t.dateEcheance;
+            if (s == null || e == null) continue;
+            const day0 = Math.floor((s * 1000) / 86400000);
+            const day1 = Math.floor((e * 1000) / 86400000);
+            const nDays = Math.max(day1 - day0 + 1, 1);
+            for (const c of charges) {
+                const perDay = (Number(c.heures) || 0) / nDays;
+                if (!perDay) continue;
+                if (!out[c.teamId]) out[c.teamId] = {};
+                for (let dd = day0; dd <= day1; dd++) {
+                    const key = periodKey(new Date(dd * 86400000), g);
+                    out[c.teamId][key] = (out[c.teamId][key] || 0) + perDay;
+                }
+            }
+        }
+        return out;
+    }
+
+    // Decale une date de n periodes (semaine = 7 jours, mois = 1 mois).
+    function shiftPeriods(date, granularity, n) {
+        const d = new Date(date.getTime());
+        if (granularity === 'month') d.setUTCMonth(d.getUTCMonth() + n);
+        else d.setUTCDate(d.getUTCDate() + n * 7);
+        return d;
+    }
+
+    // Liste contigue de cles de periode (semaine ISO ou mois) a partir d'une date,
+    // alignee sur le debut de periode (lundi / 1er du mois). Inclut les periodes vides.
+    function periodRange(startDate, granularity, count) {
+        const g = granularity === 'month' ? 'month' : 'week';
+        let d = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate()));
+        if (g === 'week') { const day = d.getUTCDay() || 7; d.setUTCDate(d.getUTCDate() - day + 1); }
+        else { d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)); }
+        const out = [];
+        for (let i = 0; i < count; i++) {
+            out.push(periodKey(d, g));
+            if (g === 'week') d.setUTCDate(d.getUTCDate() + 7);
+            else d.setUTCMonth(d.getUTCMonth() + 1);
+        }
+        return out;
+    }
+
+    // chargeMatrix : generalise chargeByMemberPeriod. Etale les charges (via getCharges,
+    // defaut parseCharges) sur la duree, agrege par cle keyFn(t, charge) et periode.
+    function chargeMatrix(tasks, keyFn, granularity, getCharges, workdays) {
+        const g = granularity === 'month' ? 'month' : 'week';
+        const out = {};
+        for (const t of (tasks || [])) {
+            const charges = getCharges ? getCharges(t) : parseCharges(t && t.charges);
+            if (!charges.length || t.dateDebut == null || t.dateEcheance == null) continue;
+            const d0 = Math.floor((t.dateDebut * 1000) / 86400000), d1 = Math.floor((t.dateEcheance * 1000) / 86400000);
+            const days = [];
+            for (let dd = d0; dd <= d1; dd++) { if (workdays) { const wd = new Date(dd * 86400000).getUTCDay(); if (wd < 1 || wd > 5) continue; } days.push(dd); }
+            if (!days.length) days.push(d0);
+            for (const c of charges) {
+                const key = keyFn(t, c); if (key == null) continue;
+                const perDay = c.heures / days.length; if (!perDay) continue;
+                if (!out[key]) out[key] = {};
+                for (const dd of days) { const pk = periodKey(new Date(dd * 86400000), g); out[key][pk] = (out[key][pk] || 0) + perDay; }
+            }
+        }
+        return out;
+    }
+
+    return {
+        DEFAULT_STATUSES: DEFAULT_STATUSES,
+        columnarToRows: columnarToRows,
+        loadStatusConfig: loadStatusConfig,
+        buildStatusConfig: buildStatusConfig,
+        getStatus: getStatus,
+        isTerminal: isTerminal,
+        seedStatusChoices: seedStatusChoices,
+        setRefDisplayColumns: setRefDisplayColumns,
+        parseCharges: parseCharges,
+        chargesToJson: chargesToJson,
+        chargeTotal: chargeTotal,
+        chargeByMember: chargeByMember,
+        periodKey: periodKey,
+        chargeByMemberPeriod: chargeByMemberPeriod,
+        shiftPeriods: shiftPeriods,
+        periodRange: periodRange,
+        chargeMatrix: chargeMatrix
+    };
+})();
+// </taskflow-core>
+
 let tasks = [], projects = [], team = [];
+let statusCfg = TF.buildStatusConfig(TF.DEFAULT_STATUSES, 'default'); // #1 : statuts dynamiques, alimente par TF.loadStatusConfig
 let gristReady = false;
 let isEditMode = false;
 let selectedCompId = null;
 let dashConfig = { layout: DEFAULT_LAYOUT.map(c => ({...c, config:{...c.config}})) };
 let filters = { periode: 'all', projets: [], assignes: [], statuts: [] };
+// WBS-04: par défaut compter uniquement les feuilles (pas les parents) pour éviter double-compte
+let leavesOnly = localStorage.getItem('taskflow_dashboard_leavesonly') !== '0';
+
+// WBS (hiérarchie sous-tâches) — API commune
+let childrenByParent = new Map();
+function rebuildChildrenCache() {
+    childrenByParent = new Map();
+    const cycleIds = new Set();
+    for (const t of tasks) {
+        const seen = new Set([t.id]);
+        let cur = t.parentTask ? tasks.find(x => x.id === t.parentTask) : null;
+        let guard = 0;
+        while (cur && guard++ < 128) {
+            if (seen.has(cur.id)) { cycleIds.add(t.id); break; }
+            seen.add(cur.id);
+            cur = cur.parentTask ? tasks.find(x => x.id === cur.parentTask) : null;
+        }
+    }
+    if (cycleIds.size) console.warn('WBS: cycles detected on task ids:', [...cycleIds]);
+    for (const t of tasks) {
+        const pid = t.parentTask;
+        if (pid && !isNaN(pid) && !cycleIds.has(t.id)) {
+            if (!childrenByParent.has(pid)) childrenByParent.set(pid, []);
+            childrenByParent.get(pid).push(t);
+        }
+    }
+}
+const isRoot = (t) => !t?.parentTask;
+const getChildren = (id) => childrenByParent.get(id) || [];
+const hasChildren = (t) => t && getChildren(t.id).length > 0;
 let filterPanelOpen = false;
 
-const STATUS_LABELS  = { todo:'À faire', inprogress:'En cours', review:'En revue', done:'Terminé' };
-const STATUS_COLORS  = { todo:'#64748b', inprogress:'#3b82f6', review:'#f59e0b', done:'#10b981' };
+// STATUS_LABELS / STATUS_COLORS supprimes : statuts lus dynamiquement via statusCfg (#1)
 const PRIORITY_LABELS = { 1:'Critique', 2:'Haute', 3:'Moyenne', 4:'Basse' };
-const PRIORITY_COLORS = { 1:'#ef4444', 2:'#f59e0b', 3:'#3b82f6', 4:'#64748b' };
+const PRIORITY_COLORS = { 1:'#e5484d', 2:'#f0982d', 3:'#4c7ef3', 4:'#8a97ab' };
 const MONTHS_SHORT = ['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sep','Oct','Nov','Déc'];
 let _compIdCounter = 100;
 
@@ -391,7 +815,10 @@ const getStatus    = t => t?.statut||'todo';
 
 const getAssigneesArray = t => {
     if (!t?.assignees) return [];
-    if (Array.isArray(t.assignees)) return t.assignees[0]==='L' ? t.assignees.slice(1) : t.assignees;
+    const a = t.assignees;
+    if (Array.isArray(a)) return a[0]==='L' ? a.slice(1) : a;   // RefList ['L',..] ou tableau simple
+    if (typeof a === 'number') return [a];                       // Ref simple (un seul assigné)
+    if (typeof a === 'string') return a.split(/[,;]/).map(s=>s.trim()).filter(Boolean); // texte (noms ou ids)
     return [];
 };
 
@@ -413,8 +840,11 @@ function getPeriodStart(periode) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // FILTRES GLOBAUX
 // ═══════════════════════════════════════════════════════════════════════════════
-function getFilteredTasks(compFilter) {
+function getFilteredTasks(compFilter, ignoreLeaves) {
     let ft = tasks;
+    // WBS-04: feuilles seulement par défaut — évite double-compte parent+enfants.
+    // ignoreLeaves: la charge (#3) somme les charges PROPRES de toutes les tâches (parents inclus, coordination), une seule fois.
+    if (leavesOnly && !ignoreLeaves) ft = ft.filter(t => !hasChildren(t));
     if (filters.periode !== 'all') {
         const pStart = getPeriodStart(filters.periode);
         ft = ft.filter(t => { const d=gristToDate(t.dateEcheance); return d && d >= pStart; });
@@ -479,7 +909,7 @@ function renderFilterPanel() {
         <div class="filter-section">
             <div class="filter-section-label">Statut</div>
             <div class="filter-checkboxes">
-                ${Object.entries(STATUS_LABELS).map(([v,l]) => `<span class="filter-check ${filters.statuts.includes(v)?'active':''}" onclick="toggleFilterStatut('${v}')">${l}</span>`).join('')}
+                ${statusCfg.list.map(s => `<span class="filter-check ${filters.statuts.includes(s.value)?'active':''}" onclick="toggleFilterStatut('${s.value}')">${s.label}</span>`).join('')}
             </div>
         </div>`;
     if (hasActiveFilters()) html += `<div class="filter-section" style="justify-content:flex-end"><button class="filter-clear" onclick="clearFilters()">Réinitialiser</button></div>`;
@@ -487,23 +917,17 @@ function renderFilterPanel() {
 }
 
 function renderFilterChips() {
-    let html = '';
-    if (filters.periode!=='all') {
-        const labels={'week':'Semaine','month':'Mois','quarter':'Trimestre'};
-        html += `<span class="filter-chip">${labels[filters.periode]}<button onclick="setPeriode('all')">×</button></span>`;
-    }
-    filters.projets.forEach(id => {
-        const p = projects.find(x=>String(x.id)===id);
-        if (p) html += `<span class="filter-chip">${escapeHtml(p.nom)}<button onclick="toggleFilterProjet(${p.id})">×</button></span>`;
-    });
-    filters.assignes.forEach(id => {
-        const m = team.find(x=>String(x.id)===id);
-        if (m) html += `<span class="filter-chip">${escapeHtml((m.nom||'').split(' ')[0])}<button onclick="toggleFilterAssigne(${m.id})">×</button></span>`;
-    });
-    filters.statuts.forEach(v => {
-        html += `<span class="filter-chip">${STATUS_LABELS[v]}<button onclick="toggleFilterStatut('${v}')">×</button></span>`;
-    });
-    document.getElementById('headerFilters').innerHTML = html;
+    const chips = [];
+    if (filters.periode!=='all') { const labels={week:'Semaine',month:'Mois',quarter:'Trimestre'}; chips.push(`<span class="filter-chip">${labels[filters.periode]}<button title="Retirer" onclick="setPeriode('all')">×</button></span>`); }
+    filters.projets.forEach(id => { const p=projects.find(x=>String(x.id)===id); if(p) chips.push(`<span class="filter-chip"><span class="fc-dot" style="background:${p.couleur||'#6366f1'}"></span>${escapeHtml(p.nom)}<button title="Retirer" onclick="toggleFilterProjet(${p.id})">×</button></span>`); });
+    filters.assignes.forEach(id => { const m=team.find(x=>String(x.id)===id); if(m) chips.push(`<span class="filter-chip">${escapeHtml((m.nom||'').split(' ')[0])}<button title="Retirer" onclick="toggleFilterAssigne(${m.id})">×</button></span>`); });
+    filters.statuts.forEach(v => { const sc=TF.getStatus(statusCfg,v); chips.push(`<span class="filter-chip"><span class="fc-dot" style="background:${sc.fillColor}"></span>${sc.label}<button title="Retirer" onclick="toggleFilterStatut('${v}')">×</button></span>`); });
+    const total = (filters.periode!=='all'?1:0) + filters.projets.length + filters.assignes.length + filters.statuts.length;
+    const cnt = document.getElementById('filterCount'); if (cnt) { cnt.textContent = total; cnt.style.display = total ? 'inline-flex' : 'none'; }
+    const ftb = document.getElementById('filterToggleBtn'); if (ftb) ftb.classList.toggle('active', total>0);
+    const host = document.getElementById('headerFilters');
+    host.style.display = chips.length ? 'flex' : 'none';
+    host.innerHTML = chips.length ? ('<span class="hf-label">Filtres actifs</span>' + chips.join('') + '<span class="hf-clear" onclick="clearFilters()">Tout effacer</span>') : '';
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -585,7 +1009,7 @@ function updateCompFilterValue(id, value, e) {
 }
 
 function getFilterValueOptions(field) {
-    if (field==='statut')   return Object.entries(STATUS_LABELS);
+    if (field==='statut')   return statusCfg.list.map(s=>[s.value, s.label]);
     if (field==='priorite') return Object.entries(PRIORITY_LABELS);
     if (field==='projet')   return projects.map(p => [String(p.id), p.nom]);
     if (field==='type')     return [['tache','Tâche'],['jalon','Jalon'],['reunion','Réunion']];
@@ -642,7 +1066,7 @@ function renderEditPanel() {
     // ── Catalogue ──
     const CATALOG_LABELS = {
         kpi:'KPI', donut:'Donut', bars:'Barres', list:'Liste',
-        workload:'Équipe', upcoming:'Échéances', projects:'Projets', velocity:'Vélocité'
+        workload:'Équipe', charge:'Charge (h)', plancharge:'Plan de charge', upcoming:'Échéances', projects:'Projets', velocity:'Vélocité'
     };
     const catalogItems = Object.keys(CATALOG).map(type => `
         <div class="catalog-item" onclick="addComponent('${type}')">
@@ -689,7 +1113,7 @@ function createComp(comp) {
             <button class="btn-icon danger" onclick="removeComponent('${comp.id}',event)" title="Supprimer">×</button>
         </div>` : '';
 
-    const ft = getFilteredTasks(hasCF ? cf : null);
+    const ft = getFilteredTasks(hasCF ? cf : null, comp.type === 'charge' || comp.type === 'plancharge');
 
     div.innerHTML = `
         <div class="comp-header">
@@ -711,6 +1135,8 @@ function renderCompBody(comp, ft) {
         case 'bars':     return renderBars(comp, ft);
         case 'list':     return renderList(comp, ft);
         case 'workload': return renderWorkload(comp, ft);
+        case 'charge':   return renderCharge(comp, ft);
+        case 'plancharge': return renderPlanCharge(comp, ft);
         case 'upcoming': return renderUpcoming(comp, ft);
         case 'projects': return renderProjects(comp, ft);
         case 'velocity': return renderVelocity(comp, ft);
@@ -728,11 +1154,11 @@ function renderKPI(comp, ft) {
     let value = 0, label = '';
     switch (metric) {
         case 'total':     value = ft.length;                                                                            label = 'tâches au total'; break;
-        case 'inprogress':value = ft.filter(t=>getStatus(t)!=='done').length;                                           label = 'tâches actives'; break;
-        case 'done':      value = ft.filter(t=>getStatus(t)==='done').length;                                           label = 'tâches terminées'; break;
-        case 'done_week': value = ft.filter(t=>getStatus(t)==='done' && gristToDate(t.dateEcheance)>=weekStart).length; label = 'terminées cette semaine'; break;
-        case 'late':      value = ft.filter(t=>{ const d=gristToDate(t.dateEcheance); return d&&d<today&&getStatus(t)!=='done'; }).length; label = 'en retard'; break;
-        case 'rate':      { const done=ft.filter(t=>getStatus(t)==='done').length; value=ft.length?Math.round(done/ft.length*100):0; label='% complété'; break; }
+        case 'inprogress':value = ft.filter(t=>!TF.isTerminal(statusCfg, getStatus(t))).length;                                           label = 'tâches actives'; break;
+        case 'done':      value = ft.filter(t=>TF.isTerminal(statusCfg, getStatus(t))).length;                                           label = 'tâches terminées'; break;
+        case 'done_week': value = ft.filter(t=>TF.isTerminal(statusCfg, getStatus(t)) && gristToDate(t.dateEcheance)>=weekStart).length; label = 'terminées cette semaine'; break;
+        case 'late':      value = ft.filter(t=>{ const d=gristToDate(t.dateEcheance); return d&&d<today&&!TF.isTerminal(statusCfg, getStatus(t)); }).length; label = 'en retard'; break;
+        case 'rate':      { const done=ft.filter(t=>TF.isTerminal(statusCfg, getStatus(t))).length; value=ft.length?Math.round(done/ft.length*100):0; label='% complété'; break; }
     }
     const cls = { total:'kpi-total', inprogress:'kpi-inprogress', done:'kpi-done', done_week:'kpi-done_week', late:'kpi-late', rate:'kpi-rate' }[metric]||'';
     const lateClass = metric==='late'&&value>0 ? 'kpi-late-border' : '';
@@ -751,7 +1177,7 @@ function groupByField(ft, field) {
         else if (field==='type')     key = t.type||'tache';
         if (key!==undefined) counts[key]=(counts[key]||0)+1;
     });
-    if (field==='statut')   return Object.entries(STATUS_LABELS).map(([k,l])=>({ key:k, label:l, count:counts[k]||0, color:STATUS_COLORS[k] }));
+    if (field==='statut')   return statusCfg.list.map(s=>({ key:s.value, label:s.label, count:counts[s.value]||0, color:s.fillColor }));
     if (field==='priorite') return [1,2,3,4].map(k=>({ key:String(k), label:PRIORITY_LABELS[k], count:counts[String(k)]||0, color:PRIORITY_COLORS[k] }));
     if (field==='projet')   return projects.filter(p=>counts[String(p.id)]).map(p=>({ key:String(p.id), label:p.nom, count:counts[String(p.id)]||0, color:p.couleur||'#6366f1' }));
     if (field==='type')     return [['tache','Tâche','#3b82f6'],['jalon','Jalon','#f59e0b'],['reunion','Réunion','#10b981']].map(([k,l,c])=>({ key:k, label:l, count:counts[k]||0, color:c }));
@@ -792,12 +1218,15 @@ function renderBars(comp, ft) {
 
 function renderWorkload(comp, ft) {
     if (!team.length) return '<div class="empty-state"><div class="empty-icon">◑</div><div class="empty-text">Aucun membre Team</div></div>';
+    // resout une valeur d'assigne (id numerique OU nom) vers un id de membre Team — robustesse des formats
+    const resolveMember = v => { const m = team.find(x => String(x.id)===String(v) || (x.nom && x.nom.toLowerCase()===String(v).trim().toLowerCase())); return m ? m.id : null; };
     const byAssignee = {};
     ft.forEach(t => {
         getAssigneesArray(t).forEach(a => {
-            if (!byAssignee[a]) byAssignee[a]={ total:0, active:0 };
-            byAssignee[a].total++;
-            if (getStatus(t)!=='done') byAssignee[a].active++;
+            const id = resolveMember(a); if (id == null) return;
+            if (!byAssignee[id]) byAssignee[id]={ total:0, active:0 };
+            byAssignee[id].total++;
+            if (!TF.isTerminal(statusCfg, getStatus(t))) byAssignee[id].active++;
         });
     });
     const maxActive = Math.max(...team.map(m=>(byAssignee[m.id]||{}).active||0), 1);
@@ -816,12 +1245,81 @@ function renderWorkload(comp, ft) {
     }).join('')}</div>`;
 }
 
+// #3 : charge par personne (somme des heures allouees via Tasks.charges)
+function renderCharge(comp, ft) {
+    if (!team.length) return '<div class="empty-state"><div class="empty-icon">◔</div><div class="empty-text">Aucun membre Team</div></div>';
+    const byMember = TF.chargeByMember(ft); // { teamId: heures }
+    const members = team.filter(m=>m.actif!==false);
+    if (!members.length) return '<div class="empty-state"><div class="empty-text">Aucun membre actif</div></div>';
+    const maxH = Math.max(...members.map(m=>byMember[m.id]||0), 1);
+    const totalH = members.reduce((s,m)=>s+(byMember[m.id]||0),0);
+    return `<div class="workload-list">${members.map(m => {
+        const h = byMember[m.id]||0;
+        const pct = Math.round(h/maxH*100);
+        const lvl = h>40?'high':h>20?'medium':'';
+        const ini=(m.nom||'?').split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
+        return `<div class="workload-item">
+            <div class="workload-avatar" style="background:${m.couleur||'#4f46e5'}">${ini}</div>
+            <div class="workload-info"><div class="workload-name">${escapeHtml(m.nom)}</div><div class="workload-tasks">${h} h allouée${h>1?'s':''}</div></div>
+            <div class="workload-bar"><div class="workload-bar-fill ${lvl}" style="width:${pct}%"></div></div>
+        </div>`;
+    }).join('')}<div style="margin-top:8px;font-size:0.78rem;color:var(--text-muted);text-align:right">Total : <strong>${totalH}</strong> h</div></div>`;
+}
+
+// #3 plan de charge temporel — grille personne × période (semaine/mois) avec taux vs capacité
+// État éphémère (non persisté) du décalage de fenêtre temporelle, par composant.
+let planChargeOffset = {};
+function planChargeShift(id, delta) { planChargeOffset[id] = (planChargeOffset[id] || 0) + delta; renderGrid(); }
+function planChargeReset(id) { planChargeOffset[id] = 0; renderGrid(); }
+
+function renderPlanCharge(comp, ft) {
+    if (!team.length) return '<div class="empty-state"><div class="empty-icon">▦</div><div class="empty-text">Aucun membre Team</div></div>';
+    const members = team.filter(m => m.actif !== false);
+    if (!members.length) return '<div class="empty-state"><div class="empty-text">Aucun membre actif</div></div>';
+    const granularity = comp.config.granularity === 'month' ? 'month' : 'week';
+    const horizon = parseInt(comp.config.horizon) || 8;
+    const includeDone = comp.config.includeDone === 'oui';
+    const defaultCap = parseFloat(comp.config.capacite) || 35;
+    let planTasks = ft;
+    if (!includeDone) planTasks = planTasks.filter(t => !TF.isTerminal(statusCfg, getStatus(t)));
+    const byMP = TF.chargeByMemberPeriod(planTasks, granularity);
+    const undated = planTasks.filter(t => TF.parseCharges(t.charges).length && (t.dateDebut == null || t.dateEcheance == null)).length;
+    if (!Object.keys(byMP).length && !undated) return '<div class="empty-state"><div class="empty-icon">▦</div><div class="empty-text">Aucune charge datée à planifier</div><div style="font-size:0.72rem;color:var(--text-muted);margin-top:4px">Renseignez la charge par personne + des dates sur les tâches.</div></div>';
+    const offset = planChargeOffset[comp.id] || 0;
+    const periods = TF.periodRange(TF.shiftPeriods(new Date(), granularity, offset), granularity, horizon);
+    const nowKey = TF.periodKey(new Date(), granularity);
+    const capWeek = (m) => (Number(m.capaciteHebdo) > 0 ? Number(m.capaciteHebdo) : defaultCap);
+    const capPer = (m) => granularity === 'month' ? capWeek(m) * 52 / 12 : capWeek(m);
+    const plabel = (p) => granularity === 'month' ? (p.slice(5) + '/' + p.slice(2, 4)) : ('S' + p.slice(6));
+    const cellColor = (h, cap) => { const r = cap > 0 ? h / cap : 0; return r > 1 ? '#e5484d' : r > 0.85 ? '#f59e0b' : r > 0 ? '#3b82f6' : 'transparent'; };
+    const navBtn = 'background:transparent;border:1px solid var(--border);color:var(--text-muted);border-radius:6px;padding:1px 9px;cursor:pointer;font-size:0.8rem';
+    let html = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><button onclick="planChargeShift(\'' + comp.id + '\',-1)" style="' + navBtn + '">◀</button><span style="font-size:0.74rem;color:var(--text-muted)">' + plabel(periods[0]) + ' → ' + plabel(periods[periods.length - 1]) + '</span><button onclick="planChargeShift(\'' + comp.id + '\',1)" style="' + navBtn + '">▶</button>' + (offset !== 0 ? '<button onclick="planChargeReset(\'' + comp.id + '\')" style="' + navBtn + ';font-size:0.72rem">Aujourd\'hui</button>' : '') + '</div>';
+    html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:0.74rem"><thead><tr><th style="text-align:left;padding:4px 8px;color:var(--text-muted);font-weight:600">Membre</th>';
+    for (const p of periods) html += '<th style="padding:4px 6px;text-align:center;font-weight:600;color:' + (p === nowKey ? 'var(--primary,#6366f1)' : 'var(--text-muted)') + '">' + plabel(p) + (p === nowKey ? ' •' : '') + '</th>';
+    html += '</tr></thead><tbody>';
+    for (const m of members) {
+        const cap = capPer(m);
+        html += '<tr><td style="padding:4px 8px;white-space:nowrap;border-top:1px solid var(--border)">' + escapeHtml(m.nom) + ' <span style="color:var(--text-muted);font-size:0.7rem">(' + Math.round(cap) + 'h)</span></td>';
+        for (const p of periods) {
+            const h = Math.round(((byMP[m.id] || {})[p] || 0) * 10) / 10;
+            const col = cellColor(h, cap);
+            const pct = cap > 0 ? Math.round(h / cap * 100) : 0;
+            html += '<td style="padding:3px 4px;text-align:center;border-top:1px solid var(--border)">' + (h > 0 ? '<div style="background:' + col + ';color:#fff;border-radius:4px;padding:2px 4px;font-weight:600;min-width:26px;display:inline-block" title="' + pct + '% de la capacité">' + h + '</div>' : '<span style="color:var(--text-muted)">·</span>') + '</td>';
+        }
+        html += '</tr>';
+    }
+    html += '</tbody></table></div>';
+    html += '<div style="margin-top:8px;display:flex;gap:14px;font-size:0.72rem;color:var(--text-muted);flex-wrap:wrap"><span><span style="display:inline-block;width:10px;height:10px;background:#3b82f6;border-radius:2px;vertical-align:middle"></span> charge OK</span><span><span style="display:inline-block;width:10px;height:10px;background:#f59e0b;border-radius:2px;vertical-align:middle"></span> &gt; 85% capacité</span><span><span style="display:inline-block;width:10px;height:10px;background:#e5484d;border-radius:2px;vertical-align:middle"></span> surcharge</span><span>· = aucune charge</span></div>';
+    if (undated) html += '<div style="margin-top:6px;font-size:0.72rem;color:#f59e0b">&#9888; ' + undated + ' tâche' + (undated > 1 ? 's' : '') + ' chargée' + (undated > 1 ? 's' : '') + ' sans dates — non planifiée' + (undated > 1 ? 's' : '') + '.</div>';
+    return html;
+}
+
 function renderUpcoming(comp, ft) {
     const horizon = parseInt(comp.config.horizon)||14;
     const today = new Date(); today.setHours(0,0,0,0);
     const upcoming = ft.filter(t => {
         const d=gristToDate(t.dateEcheance);
-        if (!d || getStatus(t)==='done') return false;
+        if (!d || TF.isTerminal(statusCfg, getStatus(t))) return false;
         return Math.ceil((d-today)/86400000) <= horizon;
     }).map(t => ({ t, d:gristToDate(t.dateEcheance), days:Math.ceil((gristToDate(t.dateEcheance)-today)/86400000) }))
       .sort((a,b)=>a.d-b.d).slice(0,8);
@@ -853,7 +1351,7 @@ function renderProjects(comp, ft) {
         if (!t.projet) return;
         if (!stats[t.projet]) stats[t.projet]={ total:0, done:0, prog:0 };
         stats[t.projet].total++;
-        if (getStatus(t)==='done') stats[t.projet].done++;
+        if (TF.isTerminal(statusCfg, getStatus(t))) stats[t.projet].done++;
         stats[t.projet].prog += (t.progression||0);
     });
     return `<div class="projects-list">${active.filter(p=>stats[p.id]).map(p => {
@@ -875,16 +1373,16 @@ function renderList(comp, ft) {
     const limit  = parseInt(comp.config.limit)||10;
     const today  = new Date(); today.setHours(0,0,0,0);
     let list = ft;
-    if (preset==='overdue')   list = ft.filter(t=>{const d=gristToDate(t.dateEcheance);return d&&d<today&&getStatus(t)!=='done';});
+    if (preset==='overdue')   list = ft.filter(t=>{const d=gristToDate(t.dateEcheance);return d&&d<today&&!TF.isTerminal(statusCfg, getStatus(t));});
     else if (preset==='today')     list = ft.filter(t=>{const d=gristToDate(t.dateEcheance);return d&&isSameDay(d,today);});
-    else if (preset==='upcoming')  list = ft.filter(t=>{const d=gristToDate(t.dateEcheance);const diff=d&&Math.ceil((d-today)/86400000);return diff!==null&&diff>=0&&diff<=14&&getStatus(t)!=='done';});
+    else if (preset==='upcoming')  list = ft.filter(t=>{const d=gristToDate(t.dateEcheance);const diff=d&&Math.ceil((d-today)/86400000);return diff!==null&&diff>=0&&diff<=14&&!TF.isTerminal(statusCfg, getStatus(t));});
     else if (preset==='inprogress')list = ft.filter(t=>getStatus(t)==='inprogress');
     if (!list.length) return '<div class="empty-state"><div class="empty-text">Aucune tâche</div></div>';
     return `<div class="list-items">${list.slice(0,limit).map(t=>{
         const p=getPriority(t), s=getStatus(t);
         const d=gristToDate(t.dateEcheance);
         const proj=projects.find(x=>x.id===t.projet);
-        const isLate=d&&d<today&&s!=='done';
+        const isLate=d&&d<today&&!TF.isTerminal(statusCfg, s);
         return `<div class="list-item" onclick="selectTask(${t.id})">
             <div class="list-prio p${p}"></div>
             <div class="list-info">
@@ -892,7 +1390,7 @@ function renderList(comp, ft) {
                 <div class="list-meta">
                     ${proj?`<span style="color:${proj.couleur||'#6366f1'}">● ${escapeHtml(proj.nom)}</span>`:''}
                     ${d?`<span class="${isLate?'text-danger':''}">${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}</span>`:''}
-                    <span class="status-badge s-${s}">${STATUS_LABELS[s]||s}</span>
+                    <span class="status-badge" style="background:${TF.getStatus(statusCfg, s).fillColor};color:${TF.getStatus(statusCfg, s).textColor}">${TF.getStatus(statusCfg, s).label}</span>
                 </div>
             </div>
         </div>`;
@@ -907,7 +1405,7 @@ function renderVelocity(comp, ft) {
         const start = startOfWeek(addDays(today, -w*7));
         const end   = addDays(start, 7);
         const count = ft.filter(t => {
-            if (getStatus(t)!=='done') return false;
+            if (!TF.isTerminal(statusCfg, getStatus(t))) return false;
             const d=gristToDate(t.dateEcheance);
             return d && d>=start && d<end;
         }).length;
@@ -929,6 +1427,21 @@ function renderVelocity(comp, ft) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // RENDER MAIN
 // ═══════════════════════════════════════════════════════════════════════════════
+function renderDashSkeleton() {
+    const grid = document.getElementById("dashboardGrid"); if (!grid) return;
+    grid.className = "dashboard-grid";
+    const sk = (w,h,r) => '<span class="tf-sk" style="display:block;width:'+w+';height:'+h+'px;border-radius:'+(r==null?5:r)+'px"></span>';
+    const card = (span, body) => '<div class="component" data-span="'+span+'"><div class="comp-header"><div class="comp-title-wrap">'+sk("92px",11)+'</div></div><div class="comp-body">'+body+'</div></div>';
+    const kpi = sk("46px",30)+'<div style="margin-top:11px">'+sk("68%",9)+'</div>';
+    let bars = '<div style="display:flex;align-items:flex-end;gap:6%;height:120px;padding:14px 4px 0">';
+    [78,52,40,66,30,58].forEach(h => bars += '<span class="tf-sk" style="flex:1;height:'+h+'%;border-radius:6px 6px 0 0"></span>');
+    bars += '</div>';
+    const donut = '<div style="display:flex;align-items:center;justify-content:center;height:148px"><span class="tf-sk" style="width:124px;height:124px;border-radius:50%"></span></div>';
+    let html = "";
+    for (let i=0;i<4;i++) html += card(1, kpi);
+    html += card(2, bars) + card(2, donut);
+    grid.innerHTML = html;
+}
 function render() {
     renderGrid();
     renderFilterChips();
@@ -1003,8 +1516,17 @@ async function loadAllData() {
             grist.docApi.fetchTable('Team'),
         ]);
         tasks=convert(td); projects=convert(pd); team=convert(md);
+        rebuildChildrenCache();
+        try { statusCfg = await TF.loadStatusConfig(grist, 'Tasks', 'statut', tasks.map(t => t && t.statut)); } catch (e) {}
         render();
     } catch(e) { console.log('Error loading data:', e); }
+}
+// WBS-04: toggle "Feuilles uniquement"
+function toggleLeavesOnly() {
+    leavesOnly = !leavesOnly;
+    localStorage.setItem('taskflow_dashboard_leavesonly', leavesOnly ? '1' : '0');
+    const b = document.getElementById('btnLeavesOnly'); if (b) b.classList.toggle('active', leavesOnly);
+    render();
 }
 
 function selectTask(id) {
@@ -1015,7 +1537,7 @@ async function markDone(taskId, event) {
     event.stopPropagation();
     if (!gristReady) return;
     try {
-        await grist.docApi.applyUserActions([['UpdateRecord', 'Tasks', taskId, { statut: 'done', progression: 100 }]]);
+        await grist.docApi.applyUserActions([['UpdateRecord', 'Tasks', taskId, { statut: statusCfg.terminalValue, progression: 100 }]]);
         await loadAllData();
     } catch(e) { console.error(e); }
 }
@@ -1071,7 +1593,34 @@ function useDemoMode() {
     render();
 }
 
+renderDashSkeleton();  // 06 · squelette pendant le chargement
+// Repli auto vers données d'exemple si Grist ne renvoie rien sous 2.8s (aperçu / hors-ligne)
+setTimeout(function(){ try { if ((typeof tasks==='undefined' || !tasks || !tasks.length) && typeof useDemoMode==='function') useDemoMode(); } catch(e){ console.log(e); } }, 2800);
+// WBS-04: sync bouton "Feuilles uniquement" au chargement
+{ const b = document.getElementById('btnLeavesOnly'); if (b) b.classList.toggle('active', leavesOnly); }
+try { if (new URLSearchParams(location.search).has('nav')) document.body.classList.add('suite-nav'); } catch (e) {}
 init();
 </script>
+<style>
+/* 12 · Barre d'onglets mobile commune + bouton central */
+.mobile-tabbar { display: none; }
+@media (max-width: 560px) {
+  body.suite-nav .mobile-tabbar { display: flex; position: fixed; bottom: 0; left: 0; right: 0; height: 62px; background: var(--card-bg); border-top: 1px solid var(--border); z-index: 60; align-items: center; justify-content: space-around; box-shadow: 0 -4px 22px rgba(0,0,0,.10); padding-bottom: env(safe-area-inset-bottom, 0); }
+  .mt-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 0.6rem; color: var(--text-muted); text-decoration: none; font-weight: 600; padding: 7px 0; background: none; border: none; cursor: pointer; }
+  .mt-item svg { width: 21px; height: 21px; }
+  .mt-item.active { color: var(--primary); }
+  .mt-fab { flex: 0 0 auto; width: 52px; height: 52px; border-radius: 50%; background: var(--primary); color: #fff; border: 3px solid var(--card-bg); display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 18px -4px rgba(62,93,231,.65); margin-top: -22px; cursor: pointer; }
+  .mt-fab svg { width: 26px; height: 26px; }
+  .main-content, .kanban-container, .grid-container, .main, .gantt-wrapper { padding-bottom: 70px !important; }
+  .panel.open { padding-bottom: 62px; }
+}
+</style>
+<nav class="mobile-tabbar">
+  <a href="kanban.html" class="mt-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="11" rx="1"/><rect x="17" y="4" width="4" height="14" rx="1"/></svg>Kanban</a>
+  <a href="gantt.html" class="mt-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="14" y2="7"/><line x1="8" y1="12" x2="19" y2="12"/><line x1="5" y1="17" x2="12" y2="17"/></svg>Gantt</a>
+  <button class="mt-fab" onclick="toggleEditMode()" title="Créer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+  <a href="calendar.html" class="mt-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Agenda</a>
+  <a href="dashboard.html" class="mt-item active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>Tableau</a>
+</nav>
 </body>
 </html>
