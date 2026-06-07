@@ -692,16 +692,31 @@ function buildRows() {
   return activeTeam().map(m => ({ key: String(m.id), label: m.nom, color: m.couleur || '#6366f1', cap: capOf(m), members: [m] }));
 }
 
-// Indisponibilités (Team.indispos JSON [{start,end,label}], dates ISO yyyy-mm-dd) -> capacité réduite par période.
+// Disponibilités : table datée Disponibilites [{membre, type, dateDebut, dateFin (Unix s), dispo 0..1}] -> capacité réduite par période.
+// Fallback historique : ancien JSON Team.indispos [{start,end,label}] (dates ISO) compté comme indispo totale.
 function parseIndispos(v) { try { const a = JSON.parse(v || '[]'); return Array.isArray(a) ? a.filter(x => x && x.start && x.end) : []; } catch (e) { return []; } }
-const dayIdx = (s) => Math.floor(Date.parse(s + 'T00:00:00Z') / 86400000);
+const dayIdx = (s) => Math.floor(Date.parse(s + 'T00:00:00Z') / 86400000); // ISO yyyy-mm-dd -> index de jour
+const isoToSec = (iso) => Math.floor(Date.parse(iso + 'T00:00:00Z') / 1000);
+const secToISO = (sec) => new Date(sec * 1000).toISOString().slice(0, 10);
 function periodDays(periodStart) { return S.granularity === 'month' ? new Date(Date.UTC(periodStart.getUTCFullYear(), periodStart.getUTCMonth() + 1, 0)).getUTCDate() : 7; }
+// Index { membreId: [{s, e, frac}] } (s,e = index de jour ; frac = capacité retirée 0..1). Reconstruit à chaque chargement.
+let DISPO = {};
+function buildDispoIndex() {
+  DISPO = {};
+  const push = (id, s, e, frac) => { if (!id || frac <= 0) return; (DISPO[id] || (DISPO[id] = [])).push({ s: s, e: e, frac: frac }); };
+  for (const r of (S.dispos || [])) {
+    const id = Number(r.membre); if (!id || r.dateDebut == null || r.dateFin == null) continue;
+    const dispo = (r.dispo == null || r.dispo === '') ? 0 : Math.max(0, Math.min(1, Number(r.dispo)));
+    push(id, Math.floor(r.dateDebut / 86400), Math.floor(r.dateFin / 86400), 1 - dispo);
+  }
+  for (const m of (S.team || [])) for (const iv of parseIndispos(m && m.indispos)) push(m.id, dayIdx(iv.start), dayIdx(iv.end), 1); // fallback legacy
+}
 function indispoFrac(member, periodStart) {
-  const ind = parseIndispos(member && member.indispos); if (!ind.length) return 0;
+  const arr = (member && DISPO[member.id]) || []; if (!arr.length) return 0;
   const p0 = Math.floor(periodStart.getTime() / 86400000), days = periodDays(periodStart);
-  let cnt = 0;
-  for (let d = p0; d < p0 + days; d++) { for (const iv of ind) { if (d >= dayIdx(iv.start) && d <= dayIdx(iv.end)) { cnt++; break; } } }
-  return Math.min(cnt / days, 1);
+  let acc = 0;
+  for (let d = p0; d < p0 + days; d++) { let f = 0; for (const iv of arr) { if (d >= iv.s && d <= iv.e && iv.frac > f) f = iv.frac; } acc += f; }
+  return Math.min(acc / days, 1);
 }
 // Capacité d'une ligne sur une période donnée (heures), ajustée des indisponibilités.
 function capForRow(row, periodStart) {
@@ -1148,13 +1163,13 @@ async function setDates(taskId, debut, echeance) {
 function openResource(key) {
   const m = teamById(Number(key)); if (!m) return;
   S._cellKey = null; S._resId = m.id;
-  const ind = parseIndispos(m.indispos);
+  const rows = (S.dispos || []).filter(r => Number(r.membre) === m.id).slice().sort((a, b) => (a.dateDebut || 0) - (b.dateDebut || 0));
   document.getElementById('pTitle').textContent = m.nom;
   document.getElementById('pSub').textContent = 'Capacité & disponibilités';
   let html = '<div class="rl">Capacité hebdomadaire</div><div class="capedit"><input type="number" min="0" step="1" value="' + capOf(m) + '" onchange="setCapacity(' + m.id + ',parseFloat(this.value)||0)"><span class="u">h / semaine</span></div>';
-  html += '<div class="rl" style="margin-top:16px">Indisponibilités (congés, fériés)</div>';
-  html += ind.length ? ind.map((iv, idx) => '<div class="indispo"><span class="il">' + esc(iv.label || 'Indispo') + '</span><span class="id">' + esc(iv.start) + ' → ' + esc(iv.end) + '</span><button class="ix" title="Retirer" onclick="removeIndispo(' + m.id + ',' + idx + ')">×</button></div>').join('') : '<div style="color:var(--text-muted);font-size:.8rem;margin:6px 0">Aucune indisponibilité.</div>';
-  html += '<div class="indispo-add"><input type="text" id="indLabel" placeholder="Libellé (ex. Congés)"><div class="dd"><input type="date" id="indStart"><span>→</span><input type="date" id="indEnd"></div><button class="btn" onclick="addIndispo(' + m.id + ')">+ Ajouter</button></div>';
+  html += '<div class="rl" style="margin-top:16px">Indisponibilités (congés, fériés, temps partiel)</div>';
+  html += rows.length ? rows.map(r => { const dv = (r.dispo == null || r.dispo === '') ? 0 : Number(r.dispo); const tag = dv > 0 ? ' (' + Math.round(dv * 100) + '% dispo)' : ''; return '<div class="indispo"><span class="il">' + esc(r.type || 'Indispo') + tag + '</span><span class="id">' + esc(secToISO(r.dateDebut)) + ' → ' + esc(secToISO(r.dateFin)) + '</span><button class="ix" title="Retirer" onclick="removeIndispo(' + m.id + ',' + r.id + ')">×</button></div>'; }).join('') : '<div style="color:var(--text-muted);font-size:.8rem;margin:6px 0">Aucune indisponibilité.</div>';
+  html += '<div class="indispo-add"><input type="text" id="indLabel" placeholder="Libellé (ex. Congés)"><div class="dd"><input type="date" id="indStart"><span>→</span><input type="date" id="indEnd"></div><div class="dd"><input type="number" id="indDispo" min="0" max="100" step="10" value="0" title="Disponibilité pendant la période (0 = absent, 50 = mi-temps)"><span class="u">% dispo</span></div><button class="btn" onclick="addIndispo(' + m.id + ')">+ Ajouter</button></div>';
   document.getElementById('pBody').innerHTML = html;
   document.getElementById('overlay').classList.add('show');
   document.getElementById('panel').classList.add('show'); document.body.classList.add('panel-open');
@@ -1165,25 +1180,23 @@ async function setCapacity(memberId, val) {
   if (!S.demo) { try { await grist.docApi.applyUserActions([['UpdateRecord', 'Team', memberId, { capaciteHebdo: m.capaciteHebdo }]]); } catch (e) {} }
   render();
 }
-async function persistIndispos(memberId, arr) {
-  const m = teamById(memberId); if (!m) return;
-  m.indispos = JSON.stringify(arr);
-  if (!S.demo) { try { await grist.docApi.applyUserActions([['UpdateRecord', 'Team', memberId, { indispos: m.indispos }]]); } catch (e) {} }
-  render(); if (S._resId === memberId) openResource(String(memberId));
+async function reloadDispos() {
+  if (!S.demo) { try { const d = await grist.docApi.fetchTable('Disponibilites').catch(() => null); S.dispos = d ? TF.columnarToRows(d) : []; } catch (e) {} }
+  buildDispoIndex();
 }
-function addIndispo(memberId) {
-  const m = teamById(memberId); if (!m) return;
+async function addIndispo(memberId) {
   const label = (document.getElementById('indLabel').value || 'Indispo').trim();
   const start = document.getElementById('indStart').value, end = document.getElementById('indEnd').value;
+  const dispoPct = Math.max(0, Math.min(100, parseFloat(document.getElementById('indDispo').value) || 0));
   if (!start || !end) { toast('Renseigne les deux dates.'); return; }
   if (end < start) { toast('La fin doit être après le début.'); return; }
-  const arr = parseIndispos(m.indispos); arr.push({ start, end, label });
-  persistIndispos(memberId, arr);
+  const fields = { membre: memberId, type: label, dateDebut: isoToSec(start), dateFin: isoToSec(end), dispo: dispoPct / 100 };
+  if (S.demo) { fields.id = (S.dispos || []).reduce((mx, r) => Math.max(mx, r.id || 0), 0) + 1; (S.dispos || (S.dispos = [])).push(fields); buildDispoIndex(); render(); openResource(String(memberId)); return; }
+  try { await grist.docApi.applyUserActions([['AddRecord', 'Disponibilites', null, fields]]); await reloadDispos(); render(); openResource(String(memberId)); } catch (e) { toast('Erreur ajout'); }
 }
-function removeIndispo(memberId, idx) {
-  const m = teamById(memberId); if (!m) return;
-  const arr = parseIndispos(m.indispos); arr.splice(idx, 1);
-  persistIndispos(memberId, arr);
+async function removeIndispo(memberId, rowId) {
+  if (S.demo) { S.dispos = (S.dispos || []).filter(r => r.id !== rowId); buildDispoIndex(); render(); openResource(String(memberId)); return; }
+  try { await grist.docApi.applyUserActions([['RemoveRecord', 'Disponibilites', rowId]]); await reloadDispos(); render(); openResource(String(memberId)); } catch (e) { toast('Erreur suppression'); }
 }
 
 // Modale de confirmation INTERNE (jamais de popup navigateur).
@@ -1241,15 +1254,18 @@ function bindToolbar() {
 }
 
 async function loadGrist() {
-  let [tasks, team, projects] = await Promise.all([
+  let [tasks, team, projects, dispos] = await Promise.all([
     grist.docApi.fetchTable('Tasks').catch(() => null),
     grist.docApi.fetchTable('Team').catch(() => null),
-    grist.docApi.fetchTable('Projects').catch(() => null)
+    grist.docApi.fetchTable('Projects').catch(() => null),
+    grist.docApi.fetchTable('Disponibilites').catch(() => null)
   ]);
-  const ensured = await ensurePlanColumns(team, tasks); team = ensured.team; tasks = ensured.tasks;
+  const ensured = await ensurePlanColumns(team, tasks, dispos); team = ensured.team; tasks = ensured.tasks; dispos = ensured.dispos;
   S.tasks = tasks ? TF.columnarToRows(tasks) : [];
   S.team = team ? TF.columnarToRows(team) : [];
   S.projects = projects ? TF.columnarToRows(projects) : [];
+  S.dispos = dispos ? TF.columnarToRows(dispos) : [];
+  buildDispoIndex();
   try { statusCfg = await TF.loadStatusConfig(grist, 'Tasks', 'statut', S.tasks.map(t => t && t.statut)); } catch (e) {}
   render();
 }
@@ -1258,23 +1274,25 @@ async function loadGrist() {
 // + Tasks.charges/dateCloture. Les autres widgets ne créent rien — ils n'activent leurs bouts "charge"
 // que si ces colonnes existent. Un doc qui n'ouvre jamais le Plan reste sans empreinte.
 let _colsEnsured = false;
-async function ensurePlanColumns(team, tasks) {
-  if (_colsEnsured) return { team, tasks };
+async function ensurePlanColumns(team, tasks, dispos) {
+  if (_colsEnsured) return { team, tasks, dispos };
   const add = [];
   if (team && !('capaciteHebdo' in team)) add.push(['AddColumn', 'Team', 'capaciteHebdo', { type: 'Numeric' }]);
   if (team && !('indispos' in team)) add.push(['AddColumn', 'Team', 'indispos', { type: 'Text' }]);
   if (tasks && !('charges' in tasks)) add.push(['AddColumn', 'Tasks', 'charges', { type: 'Text' }]);
   if (tasks && !('dateCloture' in tasks)) add.push(['AddColumn', 'Tasks', 'dateCloture', { type: 'Date' }]);
+  if (dispos == null) add.push(['AddTable', 'Disponibilites', [{ id: 'membre', type: 'Ref:Team' }, { id: 'type', type: 'Text' }, { id: 'dateDebut', type: 'Date' }, { id: 'dateFin', type: 'Date' }, { id: 'dispo', type: 'Numeric' }, { id: 'commentaire', type: 'Text' }]]);
   _colsEnsured = true; // garde anti-ré-entrance (onRecords rappelle loadGrist pendant l'await)
-  if (!add.length) return { team, tasks };
+  if (!add.length) return { team, tasks, dispos };
   try {
     await grist.docApi.applyUserActions(add);
-    const [t2, tm2] = await Promise.all([
+    const [t2, tm2, d2] = await Promise.all([
       grist.docApi.fetchTable('Tasks').catch(() => tasks),
-      grist.docApi.fetchTable('Team').catch(() => team)
+      grist.docApi.fetchTable('Team').catch(() => team),
+      grist.docApi.fetchTable('Disponibilites').catch(() => dispos)
     ]);
-    return { team: tm2, tasks: t2 };
-  } catch (e) { return { team, tasks }; }
+    return { team: tm2, tasks: t2, dispos: d2 };
+  } catch (e) { return { team, tasks, dispos }; }
 }
 
 function loadDemo() {
@@ -1298,6 +1316,10 @@ function loadDemo() {
     { id: 6, titre: 'Specs à cadrer', statut: 'todo', projet: 1, dateDebut: null, dateEcheance: null, charges: '[{"teamId":3,"heures":10}]' },
     { id: 7, titre: 'Hotfix critique', statut: 'inprogress', projet: 1, dateDebut: g(7), dateEcheance: g(8), charges: '[{"teamId":2,"heures":30}]' }
   ];
+  S.dispos = [
+    { id: 1, membre: 3, type: 'Mi-temps', dateDebut: g(0), dateFin: g(6), dispo: 0.5 } // Claire à 50% cette semaine (teste partiel + table) ; David garde son JSON legacy (teste fallback)
+  ];
+  buildDispoIndex();
   render();
 }
 
